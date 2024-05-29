@@ -1,0 +1,5 @@
+require {
+  github.com/diku-dk/sml-setmap 0.1.2 #8549d0d64a4b63b1e7fba3e545c5cac89c2ff447
+  github.com/diku-dk/sml-uref 0.0.2 #6881e4ab970febf55d4e684753dfd173b2fb033d
+  github.com/diku-dk/sml-random 0.1.1 #0a0f79c857207f948e89e18b320f162e30e1fdaf
+}

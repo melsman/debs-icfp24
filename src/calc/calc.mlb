@@ -1,0 +1,11 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  ml-yacc-lib.mlb
+  calc.grm.sig
+  calc.grm.sml
+  calc.lex.sml
+  calc.sml
+  main0.sml
+in
+  main.sml
+end

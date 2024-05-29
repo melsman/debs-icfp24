@@ -1,0 +1,7 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  CommandLineArgs.sml
+  ray0.sml
+in
+  ray.sml
+end

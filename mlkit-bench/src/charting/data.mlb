@@ -1,0 +1,10 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  isodate/isodate.mlb
+  listutil/listutil.mlb
+  ../../lib/github.com/diku-dk/sml-setmap/string_map.mlb
+  ../../lib/github.com/diku-dk/sml-json/json.mlb
+in
+  datatype.mlb
+  Data.sml
+end
