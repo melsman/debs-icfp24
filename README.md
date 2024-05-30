@@ -36,9 +36,9 @@ demonstrations and benchmarks. Running `make all` should take less than a XXXX.
 This artifact includes (1) a tutorial demonstrating unboxing in the MLKit (and
 in particular unboxing through double-ended bit-stealing) as described in the
 ICFP 2024 paper "Double-Ended Bit-Stealing for Algebraic Data Types", (2) code
-for reproducing the benchmark results reported in the ICFP 2024 paper, and (3)
-the source code for MLKit, including a description of the implementation of
-double-ended bit-stealing.
+for reproducing the benchmark results reported in the paper, and (3) the source
+code for MLKit, including a description of the implementation of double-ended
+bit-stealing.
 
 Double-ended bit-stealing for algebraic data types is implemented in the MLKit
 compiler, a compiler for the programming language Standard ML. Source files are
