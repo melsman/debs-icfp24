@@ -3,4 +3,4 @@ all:
 
 .PHONY: clean
 clean:
-	rm -rf *~ MLB
+	rm -rf *~ MLB run
