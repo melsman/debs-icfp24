@@ -100,21 +100,6 @@
 
 (* ************************************************************************* *)
 
-(* sweeks added rand *)
-local
-   open Word
-   val seed: word ref = ref 0w13
-in
-   (* From page 284 of Numerical Recipes in C. *)
-   fun rand (): word =
-      let
-	 val res = 0w1664525 * !seed + 0w1013904223
-	 val _ = seed := res
-      in
-	 res
-      end
-end
-
 (*
  * ImmArray.sml
  *
@@ -159,9 +144,6 @@ signature IMMARRAY
       val update : 'a immarray * int * 'a -> 'a immarray;
       val extract : 'a immarray * int * int option -> 'a immarray;
 
-      val copy : {src : 'a immarray, si : int, len : int option,
-		  dst : 'a immarray, di : int} -> 'a immarray;
-
       val appi : (int * 'a -> unit) -> ('a immarray * int * int option)
                  -> unit;
       val app : ('a -> unit) -> 'a immarray -> unit;
@@ -174,11 +156,7 @@ signature IMMARRAY
       val mapi : ((int * 'a) -> 'b) -> ('a immarray * int * int option)
 	         ->  'b immarray;
       val map : ('a -> 'b) -> 'a immarray -> 'b immarray;
-      val modifyi : ((int * 'a) -> 'a) -> ('a immarray * int * int option)
-                    -> 'a immarray;
-      val modify : ('a -> 'a) -> 'a immarray -> 'a immarray;
-    end;
-
+    end
 
 structure ImmArray : IMMARRAY
   = struct
@@ -188,7 +166,7 @@ structure ImmArray : IMMARRAY
        * The use of a constructor prevents list functions from
        * treating immarray type as a list.
        *)
-      datatype 'a immarray = IA of 'a list;
+      type 'a immarray = 'a vector
 
       (* val maxLen : int
        * The maximum length of immarrays supported.
@@ -197,7 +175,7 @@ structure ImmArray : IMMARRAY
        * but for convience and compatibility, use the Array structure's
        * maximum length.
        *)
-      val maxLen = Array.maxLen;
+      val maxLen = Vector.maxLen;
 
       (* val tabulate : int * (int -> 'a) -> 'a immarray
        * val immarray : int * 'a -> 'a immarray
@@ -209,19 +187,18 @@ structure ImmArray : IMMARRAY
        * The toList function converts an immarray to a list.
        * The length function returns the length of an immarray.
        *)
-      fun tabulate (n, initfn) = IA (List.tabulate (n, initfn));
-      fun immarray (n, init) = tabulate (n, fn _ => init);
-      fun fromList l = IA l;
-      fun toList (IA ia) = ia;
-      fun length (IA ia) = List.length ia;
+      fun tabulate (n, initfn) = Vector.tabulate (n, initfn)
+      fun immarray (n, init) = tabulate (n, fn _ => init)
+      fun fromList l = Vector.fromList l
+      fun toList ia = Vector.foldr (op ::) nil ia
+      fun length ia = Vector.length ia
 
       (* val sub : 'a immarray * int -> 'a
        * val update : 'a immarray * int * 'a -> 'a immarray
        * These functions sub and update an immarray by index.
        *)
-      fun sub (IA ia, i) = List.nth (ia, i);
-      fun update (IA ia, i, x) = IA ((List.take (ia, i)) @
-				     (x::(List.drop (ia, i + 1))));
+      fun sub (ia, i) = Vector.sub (ia, i)
+      fun update (ia, i, x) = Vector.update(ia,i,x)
 
       (* val extract : 'a immarray * int * int option -> 'a immarray
        * This function extracts an immarray slice from an immarray from
@@ -229,24 +206,7 @@ structure ImmArray : IMMARRAY
        * or for n elements (SOME n), as described in the
        * Standard ML Basis Library.
        *)
-      fun extract (IA ia, i, NONE) = IA (List.drop (ia, i))
-	| extract (IA ia, i, SOME n) = IA (List.take (List.drop (ia, i), n));
-
-      (* val copy : {src : 'a immarray, si : int, len : int option,
-                     dst : 'a immarray, di : int} -> 'a immarray
-       * This function copies an immarray slice from src into dst starting
-       * at the di element.
-       *)
-      fun copy {src, si, len, dst=IA ia, di}
-	= let
-	    val IA sia = extract (src, si, len);
-	    val pre = List.take (ia, di);
-	    val post = case len
-			 of NONE => List.drop (ia, di+(List.length sia))
-			  | SOME n => List.drop (ia, di+n);
-	  in
-	    IA (pre @ sia @ post)
-	  end;
+      fun extract (ia,i,opt) = VectorSlice.vector(VectorSlice.slice(ia,i,opt))
 
       (* val appi : ('a * int -> unit) -> ('a immarray * int * int option)
        *            -> unit
@@ -256,16 +216,10 @@ structure ImmArray : IMMARRAY
        * index of the element as an argument to the applied function
        * and uses an immarray slice argument.
        *)
-      local
-	fun appi_aux f i [] = ()
-	  | appi_aux f i (h::t) = (f(i,h); appi_aux f (i + 1) t);
-      in
-	fun appi f (IA ia, i, len) = let
-				       val IA sia = extract (IA ia, i, len);
-				     in
-				       appi_aux f i sia
-				     end;
-      end;
+
+      fun appi f (ia, i, len) = let val sl = VectorSlice.slice (ia, i, len)
+                                in VectorSlice.appi f sl
+				end
       fun app f immarr = appi (f o #2) (immarr, 0, NONE);
 
       (* val foldli : (int * 'a * 'b -> 'b) -> 'b
@@ -279,27 +233,19 @@ structure ImmArray : IMMARRAY
        * the index of the element as an argument to the folded function
        * and uses an immarray slice argument.
        *)
-      local
-	fun foldli_aux f b i [] = b
-	  | foldli_aux f b i (h::t) = foldli_aux f (f(i,h,b)) (i+1) t;
-	fun foldri_aux f b i [] = b
-	  | foldri_aux f b i (h::t) = f(i,h,foldri_aux f b (i+1) t);
-      in
-	fun foldli f b (IA ia, i, len)
-	  = let
-	      val IA ia2 = extract (IA ia, i, len);
-	    in
-	      foldli_aux f b i ia2
-	    end;
-	fun foldri f b (IA ia, i, len)
-	  = let
-	      val IA ia2 = extract (IA ia, i, len);
-	    in
-	      foldri_aux f b i ia2
-	    end;
-      end;
-      fun foldl f b (IA ia) = foldli (fn (_,i,x) => f(i,x)) b (IA ia, 0, NONE);
-      fun foldr f b (IA ia) = foldri (fn (_,i,x) => f(i,x)) b (IA ia, 0, NONE);
+
+      fun foldli f b (ia, i, len) =
+          let val sl = VectorSlice.slice (ia, i, len)
+          in VectorSlice.foldli f b sl
+	  end
+
+      fun foldri f b (ia, i, len) =
+          let val sl = VectorSlice.slice (ia, i, len)
+          in VectorSlice.foldri f b sl
+	  end
+
+      fun foldl f b ia = foldli (fn (_,i,x) => f(i,x)) b (ia, 0, NONE)
+      fun foldr f b ia = foldri (fn (_,i,x) => f(i,x)) b (ia, 0, NONE)
 
       (* val mapi : ('a * int -> 'b) -> 'a immarray -> 'b immarray
        * val map : ('a -> 'b) -> 'a immarray -> 'b immarray
@@ -313,45 +259,31 @@ structure ImmArray : IMMARRAY
        * type of the resulting immarray.  Thus, mapi with the identity
        * function reduces to the extract function.
        *)
-      local
-	fun mapi_aux f i [] = []
-	  | mapi_aux f i (h::t) = (f (i,h))::(mapi_aux f (i + 1) t);
-      in
-	fun mapi f (IA ia, i, len) = let
-				       val IA ia2 = extract (IA ia, i, len);
-				     in
-				       IA (mapi_aux f i ia2)
-				     end;
-      end;
-      fun map f (IA ia)= mapi (f o #2) (IA ia, 0, NONE);
 
-      (* val modifyi : (int * 'a -> 'a) -> ('a immarray * int * int option)
-       *               -> 'a immarray
-       * val modify : ('a -> 'a) -> 'a immarray -> 'a immarray
-       * These functions apply a function to every element of an immarray
-       * in left to right order and returns a new immarray where corresponding
-       * elements are replaced by their modified values.  The modifyi
-       * function also provides the index of the element as an argument
-       * to the mapped function and uses an immarray slice argument.
-       *)
-      local
-	fun modifyi_aux f i [] = []
-	  | modifyi_aux f i (h::t) = (f (i,h))::(modifyi_aux f (i + 1) t);
-      in
-	fun modifyi f (IA ia, i, len)
-	  = let
-	      val pre = List.take (ia, i);
-	      val IA ia2 = extract (IA ia, i, len);
-	      val post = case len
-			   of NONE => []
-			    | SOME n => List.drop (ia, i+n);
-	    in
-	      IA (pre @ (modifyi_aux f i ia2) @ post)
-	    end;
-      end;
-      fun modify f (IA ia) = modifyi (f o #2) (IA ia, 0, NONE);
+      fun mapi f (ia, i, len) =
+          let val sl = VectorSlice.slice (ia, i, len)
+          in VectorSlice.mapi f sl
+	  end
+      fun map f ia = mapi (f o #2) (ia, 0, NONE)
 
-    end;
+    end
+
+(* sweeks added rand *)
+local
+   open Word
+   val seed: word ref = ref 0w13
+in
+   (* From page 284 of Numerical Recipes in C. *)
+   fun rand (): word =
+      let
+	 val res = 0w1664525 * !seed + 0w1013904223
+	 val _ = seed := res
+      in
+	 res
+      end
+end
+
+
 
 (* ************************************************************************* *)
 
@@ -393,10 +325,6 @@ signature IMMARRAY2
       val extract : 'a immarray2 * int * int * int option * int option
                     -> 'a immarray2;
 
-      val copy : {src : 'a immarray2, si : int, sj : int,
-                  ilen : int option, jlen : int option,
-                  dst : 'a immarray2, di : int, dj : int} -> 'a immarray2;
-
       val nRows : 'a immarray2 -> int;
       val nCols : 'a immarray2 -> int;
       val row : 'a immarray2 * int -> 'a ImmArray.immarray;
@@ -418,225 +346,7 @@ signature IMMARRAY2
                  -> ('a immarray2 * int * int * int option * int option)
 	         -> 'b immarray2;
       val map : traversal -> ('a -> 'b) -> 'a immarray2 -> 'b immarray2;
-      val modifyi : traversal -> ((int * int * 'a) -> 'a)
-                    -> ('a immarray2 * int * int * int option * int option)
-                    -> 'a immarray2;
-      val modify : traversal -> ('a -> 'a) -> 'a immarray2 -> 'a immarray2;
-    end;
-
-structure ImmArray2 : IMMARRAY2
-  = struct
-
-      (* datatype 'a immarray2
-       * An immarray2 is stored internally as an immutable array
-       * of immutable arrays.  The use of a contructor prevents ImmArray
-       * functions from treating the immarray2 type as an immarray.
-      *)
-      datatype 'a immarray2 = IA2 of 'a ImmArray.immarray ImmArray.immarray;
-      datatype traversal = RowMajor | ColMajor
-
-      (* val tabulate : traversal -> int * int * (int * int -> 'a)
-       *                -> 'a immarray2
-       * val immarray2 : int * int * 'a -> 'a immarray2
-       * val fromList : 'a list list -> 'a immarray2
-       * val dmensions : 'a immarray2 -> int * int
-       * These functions perform basic immarray2 functions.
-       * The tabulate and immarray2 functions create an immarray2.
-       * The fromList function converts a list of lists into an immarray2.
-       * Unlike Array2.fromList, fromList will accept lists of different
-       * lengths, allowing one to create an immarray2 in which the
-       * rows have different numbers of columns, although it is likely that
-       * exceptions will be raised when other ImmArray2 functions are applied
-       * to such an immarray2.  Note that dimensions will return the
-       * number of columns in row 0.
-       * The dimensions function returns the dimensions of an immarray2.
-       *)
-      fun tabulate RowMajor (r, c, initfn)
-	= let
-	    fun initrow r = ImmArray.tabulate (c, fn ic => initfn (r,ic));
-	  in
-	    IA2 (ImmArray.tabulate (r, fn ir => initrow ir))
-	  end
-	| tabulate ColMajor (r, c, initfn)
-	  = turn (tabulate RowMajor (c,r, fn (c,r) => initfn(r,c)))
-      and immarray2 (r, c, init) = tabulate RowMajor (r, c, fn (_, _) => init)
-      and fromList l
-	= IA2 (ImmArray.tabulate (length l,
-				  fn ir => ImmArray.fromList (List.nth(l,ir))))
-      and dimensions (IA2 ia2) = (ImmArray.length ia2,
-				  ImmArray.length (ImmArray.sub (ia2, 0)))
-
-      (* turn : 'a immarray2 -> 'a immarray2
-       * This function reverses the rows and columns of an immarray2
-       * to allow handling of ColMajor traversals.
-       *)
-      and turn ia2 = let
-		       val (r,c) = dimensions ia2;
-		     in
-		       tabulate RowMajor (c,r,fn (cc,rr) => sub (ia2,rr,cc))
-		     end
-
-      (* val sub : 'a immarray2 * int * int -> 'a
-       * val update : 'a immarray2 * int * int * 'a -> 'a immarray2
-       * These functions sub and update an immarray2 by indices.
-       *)
-      and sub (IA2 ia2, r, c) = ImmArray.sub(ImmArray.sub (ia2, r), c);
-      fun update (IA2 ia2, r, c, x)
-	  = IA2 (ImmArray.update (ia2, r,
-				  ImmArray.update (ImmArray.sub (ia2, r),
-						   c, x)));
-
-      (* val extract : 'a immarray2 * int * int *
-       *               int option * int option -> 'a immarray2
-       * This function extracts a subarray from an immarray2 from
-       * one pair of indices either through the rest of the
-       * immarray2 (NONE, NONE) or for the specfied number of elements.
-       *)
-      fun extract (IA2 ia2, i, j, rlen, clen)
-	  = IA2 (ImmArray.map (fn ia => ImmArray.extract (ia, j, clen))
-		              (ImmArray.extract (ia2, i, rlen)));
-
-      (* val nRows : 'a immarray2 -> int
-       * val nCols : 'a immarray2 -> int
-       * These functions return specific dimensions of an immarray2.
-       *)
-      fun nRows (IA2 ia2) = (#1 o dimensions) (IA2 ia2);
-      fun nCols (IA2 ia2) = (#2 o dimensions) (IA2 ia2);
-      (* val row : immarray2 * int -> ImmArray.immarray
-       * val column : immarray2 * int -> ImmArray.immarray
-       * These functions extract an entire row or column from
-       * an immarray2 by index, returning the row or column as
-       * an ImmArray.immarray.
-       *)
-      fun row (ia2, r) = let
-			   val (c, _) = dimensions ia2;
-			 in
-			   ImmArray.tabulate (c, fn i => sub (ia2, r, i))
-			 end;
-      fun column (ia2, c) = let
-			      val (_, r) = dimensions ia2;
-			    in
-			      ImmArray.tabulate (r, fn i => sub (ia2, i, c))
-			    end;
-
-      (* val copy : {src : 'a immarray2, si : int, sj : int,
-       *             ilen : int option, jlen : int option,
-       *             dst : 'a immarray2, di : int, dj : int};
-       * This function copies an immarray2 slice from src int dst starting
-       * at the di,dj element.
-       *)
-      fun copy {src, si, sj, ilen, jlen, dst=IA2 ia2, di, dj}
-	= let
-	    val nilen = case ilen
-			  of NONE => SOME ((nRows src) - si)
-			   | SOME n => SOME n;
-	  in
-	    IA2 (ImmArray.modifyi (fn (r, ia)
-				   => ImmArray.copy {src=row (src, si+r-di),
-						     si=sj, len=jlen,
-						     dst=ia, di=dj})
-		                  (ia2, di, nilen))
-	  end;
-
-      (* val appi : traversal -> ('a * int * int -> unit) -> 'a immarray2
-       *            -> unit
-       * val app : traversal -> ('a -> unit) -> 'a immarray2 -> unit
-       * These functions apply a function to every element
-       * of an immarray2.  The appi function also provides the
-       * indices of the element as an argument to the applied function
-       * and uses an immarray2 slice argument.
-       *)
-      fun appi RowMajor f (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.appi (fn (r,ia) => ImmArray.appi (fn (c,x) => f(r,c,x))
-			                            (ia, j, clen))
-	                (ia2, i, rlen)
-	| appi ColMajor f (ia2, i, j, rlen, clen)
-	= appi RowMajor (fn (c,r,x) => f(r,c,x)) (turn ia2, j, i, clen, rlen);
-      fun app tr f (IA2 ia2) = appi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
-
-      (* val foldli : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-       *              -> ('a immarray2 * int * int * int option * int option)
-       *              -> 'b
-       * val foldri : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-       *              -> ('a immarray2 * int * int * int option * int option)
-       *              -> 'b
-       * val foldl : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
-       * val foldr : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
-       * These functions fold a function over every element
-       * of an immarray2.  The foldri and foldli functions also provide
-       * the index of the element as an argument to the folded function
-       * and uses an immarray2 slice argument.
-       *)
-      fun foldli RowMajor f b (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.foldli (fn (r,ia,b)
-			   => ImmArray.foldli (fn (c,x,b) => f(r,c,x,b))
-                                              b
-                                              (ia, j, clen))
-                          b
-                          (ia2, i, rlen)
-	| foldli ColMajor f b (ia2, i, j, rlen, clen)
-	= foldli RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
-                 (turn ia2, j, i, clen, rlen);
-      fun foldri RowMajor f b (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.foldri (fn (r,ia,b)
-			   => ImmArray.foldri (fn (c,x,b) => f(r,c,x,b))
-                                              b
-                                              (ia, j, clen))
-                          b
-                          (ia2, i, rlen)
-	| foldri ColMajor f b (ia2, i, j, rlen, clen)
-	= foldri RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
-                          (turn ia2, j, i, clen, rlen);
-      fun foldl tr f b (IA2 ia2)
-	= foldli tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
-      fun foldr tr f b (IA2 ia2)
-	= foldri tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
-
-      (* val mapi : traversal -> ('a * int * int -> 'b) -> 'a immarray2
-       *            -> 'b immarray2
-       * val map : traversal -> ('a -> 'b) -> 'a immarray2 -> 'b immarray2
-       * These functions map a function over every element
-       * of an immarray2.  The mapi function also provides the
-       * indices of the element as an argument to the mapped function
-       * and uses an immarray2 slice argument.  Although there are
-       * similarities between mapi and modifyi, note that when mapi is
-       * used with an immarray2 slice, the resulting immarray2 is the
-       * same size as the slice.  This is necessary to preserve the
-       * type of the resulting immarray2.  Thus, mapi with the identity
-       * function reduces to the extract function.
-       *)
-      fun mapi RowMajor f (IA2 ia2, i, j, rlen, clen)
-	= IA2 (ImmArray.mapi (fn (r,ia) => ImmArray.mapi (fn (c,x) => f(r,c,x))
-			                                 (ia, j, clen))
-                             (ia2, i, rlen))
-	| mapi ColMajor f (ia2, i, j, rlen, clen)
-	= turn (mapi RowMajor (fn (c,r,x) => f(r,c,x))
-                     (turn ia2, j, i, clen, rlen))
-      fun map tr f (IA2 ia2)
-	= mapi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
-
-      (* val modifyi : traversal -> (int * int* 'a -> 'a)
-                       -> ('a immarray2 * int * int * int option * int option)
-       *               -> 'a immarray2
-       * val modify : traversal -> ('a -> 'a) -> 'a immarray2 -> 'a immarray2
-       * These functions apply a function to every element of an immarray2
-       * in row by column order and returns a new immarray2 where corresponding
-       * elements are replaced by their modified values.  The modifyi
-       * function also provides the index of the element as an argument
-       * to the mapped function and uses an immarray2 slice argument.
-       *)
-      fun modifyi RowMajor f (IA2 ia2, i, j, rlen, clen)
-	= IA2 (ImmArray.modifyi (fn (r,ia) => ImmArray.modifyi (fn (c,x)
-								=> f(r,c,x))
-				                               (ia, j, clen))
-              (ia2, i, rlen))
-	| modifyi ColMajor f (ia2, i, j, rlen, clen)
-	= turn (modifyi RowMajor (fn (c,r,x) => f(r,c,x))
-               (turn ia2, j, i, clen, rlen));
-      fun modify tr f (IA2 ia2)
-	= modifyi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
-
-    end;
+    end
 
 (* ************************************************************************* *)
 
@@ -666,50 +376,7 @@ signature REGISTERFILE
 
       val StoreRegister : registerfile * int * Word32.word -> registerfile;
 
-    end;
-
-(*****************************************************************************)
-
-(*
- * RegisterFile.sml
- *
- * This defines the RegisterFile structure, which provides the
- * functionality of the register file.  The datatype registerfile
- * provides the encapsulation of the register file, InitRegisterFile
- * initializes the registerfile, setting all registers to zero and
- * setting r0, gp, sp, and fp to their appropriate values,
- * LoadRegister takes a registerfile and an integer corresponding to
- * the register, and returns the Word32.word value at that register,
- * and StoreRegister takes a registerfile, an integer corresponding to
- * the register, and a Word32.word and returns the registerfile
- * updated with the word stored in the appropriate register.
- *
- * The underlying structure of registerfile is an immutable array of
- * Word32.word.
- *)
-
-structure RegisterFile : REGISTERFILE
-  = struct
-
-      type registerfile = Word32.word ImmArray.immarray;
-
-      fun InitRegisterFile ()
-	  = ImmArray.update
-	    (ImmArray.update
-	     (ImmArray.update
-	      (ImmArray.update
-	       (ImmArray.immarray(32, 0wx00000000 : Word32.word),
-		00, 0wx00000000 : Word32.word),
-	       28, 0wx00000000 : Word32.word),
-	      29, 0wx00040000 : Word32.word),
-	     30, 0wx00040000 : Word32.word) : registerfile;
-
-      fun LoadRegister (rf, reg) = ImmArray.sub(rf, reg);
-
-      fun StoreRegister (rf, reg, data) = ImmArray.update(rf, reg, data);
-
-    end;
-
+    end
 
 (*****************************************************************************)
 
@@ -736,100 +403,7 @@ signature ALU
 
       val PerformAL : (ALUOp * Word32.word * Word32.word) -> Word32.word;
 
-    end;
-
-(*****************************************************************************)
-
-(*
- * ALU.sml
- *
- * This defines the ALU structure, which provides the functionality of
- * an Arithmetic/Logic Unit.  The datatype ALUOp provides a means to
- * specify which operation is to be performed by the ALU, and
- * PerformAL performs one of the operations on two thirty-two bit
- * words, returning the result as a thirty-two bit word.
- *
- * A note about SML'97 Basis Library implementation of thirty-two bit
- * numbers: the Word32.word is an unsigned thirty-two bit integer,
- * while Int.int (equivalent to Int.int) is a signed thirty-two
- * bit integer.  In order to perform the signed operations, it is
- * necessary to convert the words to signed form, using the
- * Word32.toIntX function, which performs sign extension,
- * and to convert the result back into unsigned form using the
- * Word32.fromInt function.  In addition, to perform a shift,
- * the second Word32.word needs to be "downsized" to a normal
- * Word.word using the Word.fromWord function.
- *)
-
-structure ALU : ALU
-  = struct
-
-      datatype ALUOp = SLL | SRL | SRA |
-	               ADD | ADDU |
-		       SUB | SUBU |
-		       AND | OR | XOR |
-		       SEQ | SNE |
-		       SLT | SGT |
-		       SLE | SGE;
-
-      fun PerformAL (opcode, s1, s2) =
-	(case opcode
-	   of SLL =>
-	        Word32.<< (s1, Word.fromLargeWord (Word32.toLargeWord s2))
-	    | SRL =>
-	        Word32.>> (s1, Word.fromLargeWord (Word32.toLargeWord s2))
-	    | SRA =>
-	        Word32.~>> (s1, Word.fromLargeWord (Word32.toLargeWord s2))
-	    | ADD =>
-		Word32.fromInt (Int.+ (Word32.toIntX s1,
-						 Word32.toIntX s2))
-	    | ADDU =>
-		Word32.+ (s1, s2)
-	    | SUB =>
-		Word32.fromInt (Int.- (Word32.toIntX s1,
-						 Word32.toIntX s2))
-	    | SUBU =>
-		Word32.- (s1, s2)
-	    | AND =>
-		Word32.andb (s1, s2)
-	    | OR =>
-		Word32.orb (s1, s2)
-	    | XOR =>
-		Word32.xorb (s1, s2)
-	    | SEQ =>
-		if (s1 = s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word
-	    | SNE =>
-		if not (s1 = s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word
-	    | SLT =>
-		if Int.< (Word32.toIntX s1, Word32.toIntX s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word
-	    | SGT =>
-		if Int.> (Word32.toIntX s1, Word32.toIntX s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word
-	    | SLE =>
-		if Int.<= (Word32.toIntX s1, Word32.toIntX s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word
-	    | SGE =>
-		if Int.>= (Word32.toIntX s1, Word32.toIntX s2)
-		  then 0wx00000001 : Word32.word
-		  else 0wx00000000 : Word32.word)
-	   (*
-	    * This handle will handle all ALU errors, most
-	    * notably overflow and division by zero, and will
-	    * print an error message and return 0.
-	    *)
-	   handle _ =>
-	     (print "Error : ALU returning 0\n";
-	      0wx00000000 : Word32.word);
-
-    end;
+    end
 
 (*****************************************************************************)
 
@@ -874,289 +448,7 @@ signature MEMORY
 
       val GetStatistics : memory -> string;
 
-    end;
-
-
-
-
-
-(*****************************************************************************)
-
-(*
- * Memory.sml
- *
- * This defines the Memory structure, which provides the functionality
- * of memory.  The datatype memory provides the encapsulation of
- * memory, InitMemory initializes memory, setting all
- * addresses to zero, LoadWord takes memory and
- * a Word32.word corresponding to the address, and returns the
- * Word32.word value at that address and the updated memory,
- * StoreWord takes memory, a Word32.word corresponding to the
- * address, and a Word32.word and returns memory updated with the word
- * stored at the appropriate address.  LoadHWord, LoadHWordU,
- * LoadByte, and LoadByteU load halfwords, unsigned halfwords,
- * bytes, and unsigned bytes respectively from memory into the
- * lower portion of the returned Word32.word.  StoreHWord and
- * StoreByte store halfwords and bytes taken from the lower portion
- * of the Word32.word into memory.
- * GetStatistics takes memory and returns the read and write
- * statistics as a string.
- *
- * The underlying structure of memory is an immutable array of Word32.word.
- * The array has a length of 0x10000, since every element of the array
- * corresponds to a thirty-two bit integer.
- *
- * Also, the functions AlignWAddress and AlignHWAddress aligns a memory
- * address to a word and halfword address, respectively.  If LoadWord,
- * StoreWord, LoadHWord, LoadHWordU, or StoreHWord is asked to access an
- * unaligned address, it writes an error message, and uses the address
- * rounded down to the aligned address.
- *)
-
-structure Memory : MEMORY
-  = struct
-
-      type memory = Word32.word ImmArray.immarray * (int * int);
-
-      fun InitMemory () =
-	(ImmArray.immarray(Word32.toInt(0wx10000 : Word32.word),
-			   0wx00000000 : Word32.word),
-	 (0, 0)) : memory;
-
-      fun AlignWAddress address
-	  = Word32.<< (Word32.>> (address, 0wx0002), 0wx0002);
-
-      fun AlignHWAddress address
-	  = Word32.<< (Word32.>> (address, 0wx0001), 0wx0001);
-
-      (* Load and Store provide errorless access to memory.
-       * They provide a common interface to memory, while
-       * the LoadX and StoreX specifically access words,
-       * halfwords and bytes, requiring address to be aligned.
-       * In Load and Store, two intermediate values are
-       * generated.  The value aligned_address is the aligned
-       * version of the given address, and is used to compare with
-       * the original address to determine if it was aligned.  The
-       * value use_address is equivalent to aligned_address divided
-       * by four, and it corresponds to the index of the memory
-       * array where the corresponding aligned address can be found.
-       *)
-
-      fun Load ((mem, (reads, writes)), address)
-	  = let
-	      val aligned_address = AlignWAddress address;
-	      val use_address = Word32.>> (aligned_address, 0wx0002);
-	    in
-	      ((mem, (reads + 1, writes)),
-	       ImmArray.sub(mem, Word32.toInt(use_address)))
-	    end;
-
-      fun Store ((mem, (reads, writes)), address, data)
- 	  = let
-	      val aligned_address = AlignWAddress address;
-	      val use_address = Word32.>> (aligned_address, 0wx0002);
-	    in
-	      (ImmArray.update(mem, Word32.toInt(use_address), data),
-	       (reads, writes + 1))
-	    end;
-
-
-      fun LoadWord (mem, address)
-	  = let
-	      val aligned_address
-		  = if address = AlignWAddress address
-		      then address
-		      else (print "Error LW: Memory using aligned address\n";
-			    AlignWAddress address);
-	    in
-	      Load(mem, aligned_address)
-	    end;
-
-      fun StoreWord (mem, address, data)
- 	  = let
-	      val aligned_address
-		  = if address = AlignWAddress address
-		      then address
-		      else (print "Error SW: Memory using aligned address\n";
-			    AlignWAddress address);
-	    in
-	      Store(mem, aligned_address, data)
-	    end;
-
-      fun LoadHWord (mem, address)
-	  = let
-	      val aligned_address
-		  = if address = AlignHWAddress address
-		      then address
-		      else (print "Error LH: Memory using aligned address\n";
-			    AlignHWAddress address);
-	      val (nmem,l_word) = Load(mem, aligned_address);
-	    in
-	      (nmem,
-	       case aligned_address
-		 of 0wx00000000 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word, 0wx0010),
-				 0wx0010)
-		  | 0wx00000010 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word, 0wx0000),
-				 0wx0010)
-		  | _ => (print "Error LH: Memory returning 0\n";
-			  0wx00000000 : Word32.word))
-	    end;
-
-      fun LoadHWordU (mem, address)
-	  = let
-	      val aligned_address
-		  = if address = AlignHWAddress address
-		      then address
-		      else (print "Error LHU: Memory using aligned address\n";
-			    AlignHWAddress address);
-	      val (nmem, l_word) = Load(mem, aligned_address);
-	    in
-	      (nmem,
-	       case aligned_address
-		 of 0wx00000000 : Word32.word
-		   => Word32.>>(Word32.<<(l_word, 0wx0010),
-				0wx0010)
-		  | 0wx00000010 : Word32.word
-		   => Word32.>>(Word32.<<(l_word, 0wx0000),
-				0wx0010)
-		  | _ => (print "Error LHU: Memory returning 0\n";
-			  0wx00000000 : Word32.word))
-	    end;
-
-      fun StoreHWord (mem, address, data)
- 	  = let
-	      val aligned_address
-		  = if address = AlignHWAddress address
-		      then address
-		      else (print "Error SH: Memory using aligned address\n";
-			    AlignWAddress address);
-	      val (_, s_word) = Load(mem, aligned_address);
-	    in
-	      case aligned_address
-		of 0wx00000000 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wxFFFF0000 : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx0000FFFF :
-							    Word32.word,
-							    data),
-						0wx0000)))
-		 | 0wx00000010 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wx0000FFFF : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx0000FFFF :
-							    Word32.word,
-							    data),
-						0wx0010)))
-		 | _ => (print "Error SH: Memory unchanged\n";
-			 mem)
-	    end;
-
-      fun LoadByte (mem, address)
-	  = let
-	      val aligned_address = address;
-	      val (nmem, l_word) = Load(mem, aligned_address);
-	    in
-	      (nmem,
-	       case aligned_address
-		 of 0wx00000000 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word,
-					   0wx0018),
-				 0wx0018)
-		  | 0wx00000008 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word,
-					   0wx0010),
-				 0wx0018)
-		  | 0wx00000010 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word,
-					   0wx0008),
-				 0wx0018)
-		  | 0wx00000018 : Word32.word
-		   => Word32.~>>(Word32.<<(l_word,
-					   0wx0000),
-				 0wx0018)
-		  | _ => (print "Error LB: Memory returning 0\n";
-			  0wx00000000 : Word32.word))
-	    end;
-
-      fun LoadByteU (mem, address)
-	  = let
-	      val aligned_address = address;
-	      val (nmem, l_word) = Load(mem, aligned_address);
-	    in
-	      (nmem,
-	       case aligned_address
-		 of 0wx00000000 : Word32.word
-		   => Word32.>>(Word32.<<(l_word,
-					  0wx0018),
-				0wx0018)
-		  | 0wx00000008 : Word32.word
-		   => Word32.>>(Word32.<<(l_word,
-					  0wx0010),
-				0wx0018)
-		  | 0wx00000010 : Word32.word
-		   => Word32.>>(Word32.<<(l_word,
-					  0wx0008),
-				0wx0018)
-		  | 0wx00000018 : Word32.word
-		   => Word32.>>(Word32.<<(l_word,
-					  0wx0000),
-				0wx0018)
-		  | _ => (print "Error LBU: Memory returning 0\n";
-			  0wx00000000 : Word32.word))
-	    end;
-
-      fun StoreByte (mem, address, data)
- 	  = let
-	      val aligned_address = address;
-	      val (_, s_word) = Load(mem, aligned_address);
-	    in
-	      case aligned_address
-		of 0wx00000000 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wxFFFFFF00 : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx000000FF :
-							    Word32.word,
-							    data),
-						0wx0000)))
-		 | 0wx00000008 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wxFFFF00FF : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx000000FF :
-							    Word32.word,
-							    data),
-						0wx0008)))
-		 | 0wx00000010 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wxFF00FFFF : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx000000FF :
-							    Word32.word,
-							    data),
-						0wx0010)))
-		 | 0wx00000018 : Word32.word
-		  => Store(mem, aligned_address,
-			   Word32.orb(Word32.andb(0wx00FFFFFF : Word32.word,
-						  s_word),
-				      Word32.<<(Word32.andb(0wx000000FF :
-							    Word32.word,
-							    data),
-						0wx0018)))
-		 | _ => (print "Error SB: Memory unchanged\n";
-			 mem)
-	    end;
-
-      fun GetStatistics (mem, (reads, writes))
-	  = "Memory :\n" ^
-	    "Memory Reads : " ^ (Int.toString reads) ^ "\n" ^
-	    "Memory Writes : " ^ (Int.toString writes) ^ "\n";
-
-    end;
+    end
 
 (*****************************************************************************)
 
@@ -1191,7 +483,8 @@ signature CACHESPEC
       val WriteHit : WriteHitOption;
       val WriteMiss : WriteMissOption;
 
-    end;
+    end
+
 
 (*****************************************************************************)
 
@@ -2651,9 +1944,596 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
       fun run_file filename args =
           run_prog (ReadFileToInstr(TextIO.openIn filename)) args
 
-    end;
+    end
+
+local
+
+structure ImmArray2 : IMMARRAY2
+  = struct
+
+      (* datatype 'a immarray2
+       * An immarray2 is stored internally as an immutable array
+       * of immutable arrays.  The use of a contructor prevents ImmArray
+       * functions from treating the immarray2 type as an immarray.
+      *)
+      datatype 'a immarray2 = IA2 of 'a ImmArray.immarray ImmArray.immarray;
+      datatype traversal = RowMajor | ColMajor
+
+      (* val tabulate : traversal -> int * int * (int * int -> 'a)
+       *                -> 'a immarray2
+       * val immarray2 : int * int * 'a -> 'a immarray2
+       * val fromList : 'a list list -> 'a immarray2
+       * val dmensions : 'a immarray2 -> int * int
+       * These functions perform basic immarray2 functions.
+       * The tabulate and immarray2 functions create an immarray2.
+       * The fromList function converts a list of lists into an immarray2.
+       * Unlike Array2.fromList, fromList will accept lists of different
+       * lengths, allowing one to create an immarray2 in which the
+       * rows have different numbers of columns, although it is likely that
+       * exceptions will be raised when other ImmArray2 functions are applied
+       * to such an immarray2.  Note that dimensions will return the
+       * number of columns in row 0.
+       * The dimensions function returns the dimensions of an immarray2.
+       *)
+      fun tabulate RowMajor (r, c, initfn)
+	= let
+	    fun initrow r = ImmArray.tabulate (c, fn ic => initfn (r,ic));
+	  in
+	    IA2 (ImmArray.tabulate (r, fn ir => initrow ir))
+	  end
+	| tabulate ColMajor (r, c, initfn)
+	  = turn (tabulate RowMajor (c,r, fn (c,r) => initfn(r,c)))
+      and immarray2 (r, c, init) = tabulate RowMajor (r, c, fn (_, _) => init)
+      and fromList l
+	= IA2 (ImmArray.tabulate (length l,
+				  fn ir => ImmArray.fromList (List.nth(l,ir))))
+      and dimensions (IA2 ia2) = (ImmArray.length ia2,
+				  ImmArray.length (ImmArray.sub (ia2, 0)))
+
+      (* turn : 'a immarray2 -> 'a immarray2
+       * This function reverses the rows and columns of an immarray2
+       * to allow handling of ColMajor traversals.
+       *)
+      and turn ia2 = let
+		       val (r,c) = dimensions ia2;
+		     in
+		       tabulate RowMajor (c,r,fn (cc,rr) => sub (ia2,rr,cc))
+		     end
+
+      (* val sub : 'a immarray2 * int * int -> 'a
+       * val update : 'a immarray2 * int * int * 'a -> 'a immarray2
+       * These functions sub and update an immarray2 by indices.
+       *)
+      and sub (IA2 ia2, r, c) = ImmArray.sub(ImmArray.sub (ia2, r), c);
+      fun update (IA2 ia2, r, c, x)
+	  = IA2 (ImmArray.update (ia2, r,
+				  ImmArray.update (ImmArray.sub (ia2, r),
+						   c, x)));
+
+      (* val extract : 'a immarray2 * int * int *
+       *               int option * int option -> 'a immarray2
+       * This function extracts a subarray from an immarray2 from
+       * one pair of indices either through the rest of the
+       * immarray2 (NONE, NONE) or for the specfied number of elements.
+       *)
+      fun extract (IA2 ia2, i, j, rlen, clen)
+	  = IA2 (ImmArray.map (fn ia => ImmArray.extract (ia, j, clen))
+		              (ImmArray.extract (ia2, i, rlen)));
+
+      (* val nRows : 'a immarray2 -> int
+       * val nCols : 'a immarray2 -> int
+       * These functions return specific dimensions of an immarray2.
+       *)
+      fun nRows (IA2 ia2) = (#1 o dimensions) (IA2 ia2);
+      fun nCols (IA2 ia2) = (#2 o dimensions) (IA2 ia2);
+      (* val row : immarray2 * int -> ImmArray.immarray
+       * val column : immarray2 * int -> ImmArray.immarray
+       * These functions extract an entire row or column from
+       * an immarray2 by index, returning the row or column as
+       * an ImmArray.immarray.
+       *)
+      fun row (ia2, r) = let
+			   val (c, _) = dimensions ia2;
+			 in
+			   ImmArray.tabulate (c, fn i => sub (ia2, r, i))
+			 end;
+      fun column (ia2, c) = let
+			      val (_, r) = dimensions ia2;
+			    in
+			      ImmArray.tabulate (r, fn i => sub (ia2, i, c))
+			    end;
+
+      (* val appi : traversal -> ('a * int * int -> unit) -> 'a immarray2
+       *            -> unit
+       * val app : traversal -> ('a -> unit) -> 'a immarray2 -> unit
+       * These functions apply a function to every element
+       * of an immarray2.  The appi function also provides the
+       * indices of the element as an argument to the applied function
+       * and uses an immarray2 slice argument.
+       *)
+      fun appi RowMajor f (IA2 ia2, i, j, rlen, clen)
+	= ImmArray.appi (fn (r,ia) => ImmArray.appi (fn (c,x) => f(r,c,x))
+			                            (ia, j, clen))
+	                (ia2, i, rlen)
+	| appi ColMajor f (ia2, i, j, rlen, clen)
+	= appi RowMajor (fn (c,r,x) => f(r,c,x)) (turn ia2, j, i, clen, rlen);
+      fun app tr f (IA2 ia2) = appi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
+
+      (* val foldli : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
+       *              -> ('a immarray2 * int * int * int option * int option)
+       *              -> 'b
+       * val foldri : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
+       *              -> ('a immarray2 * int * int * int option * int option)
+       *              -> 'b
+       * val foldl : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
+       * val foldr : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
+       * These functions fold a function over every element
+       * of an immarray2.  The foldri and foldli functions also provide
+       * the index of the element as an argument to the folded function
+       * and uses an immarray2 slice argument.
+       *)
+      fun foldli RowMajor f b (IA2 ia2, i, j, rlen, clen)
+	= ImmArray.foldli (fn (r,ia,b)
+			   => ImmArray.foldli (fn (c,x,b) => f(r,c,x,b))
+                                              b
+                                              (ia, j, clen))
+                          b
+                          (ia2, i, rlen)
+	| foldli ColMajor f b (ia2, i, j, rlen, clen)
+	= foldli RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
+                 (turn ia2, j, i, clen, rlen);
+      fun foldri RowMajor f b (IA2 ia2, i, j, rlen, clen)
+	= ImmArray.foldri (fn (r,ia,b)
+			   => ImmArray.foldri (fn (c,x,b) => f(r,c,x,b))
+                                              b
+                                              (ia, j, clen))
+                          b
+                          (ia2, i, rlen)
+	| foldri ColMajor f b (ia2, i, j, rlen, clen)
+	= foldri RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
+                          (turn ia2, j, i, clen, rlen);
+      fun foldl tr f b (IA2 ia2)
+	= foldli tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
+      fun foldr tr f b (IA2 ia2)
+	= foldri tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
+
+      (* val mapi : traversal -> ('a * int * int -> 'b) -> 'a immarray2
+       *            -> 'b immarray2
+       * val map : traversal -> ('a -> 'b) -> 'a immarray2 -> 'b immarray2
+       * These functions map a function over every element
+       * of an immarray2.  The mapi function also provides the
+       * indices of the element as an argument to the mapped function
+       * and uses an immarray2 slice argument.  Although there are
+       * similarities between mapi and modifyi, note that when mapi is
+       * used with an immarray2 slice, the resulting immarray2 is the
+       * same size as the slice.  This is necessary to preserve the
+       * type of the resulting immarray2.  Thus, mapi with the identity
+       * function reduces to the extract function.
+       *)
+      fun mapi RowMajor f (IA2 ia2, i, j, rlen, clen)
+	= IA2 (ImmArray.mapi (fn (r,ia) => ImmArray.mapi (fn (c,x) => f(r,c,x))
+			                                 (ia, j, clen))
+                             (ia2, i, rlen))
+	| mapi ColMajor f (ia2, i, j, rlen, clen)
+	= turn (mapi RowMajor (fn (c,r,x) => f(r,c,x))
+                     (turn ia2, j, i, clen, rlen))
+      fun map tr f (IA2 ia2)
+	= mapi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * RegisterFile.sml
+ *
+ * This defines the RegisterFile structure, which provides the
+ * functionality of the register file.  The datatype registerfile
+ * provides the encapsulation of the register file, InitRegisterFile
+ * initializes the registerfile, setting all registers to zero and
+ * setting r0, gp, sp, and fp to their appropriate values,
+ * LoadRegister takes a registerfile and an integer corresponding to
+ * the register, and returns the Word32.word value at that register,
+ * and StoreRegister takes a registerfile, an integer corresponding to
+ * the register, and a Word32.word and returns the registerfile
+ * updated with the word stored in the appropriate register.
+ *
+ * The underlying structure of registerfile is an immutable array of
+ * Word32.word.
+ *)
+
+structure RegisterFile : REGISTERFILE
+  = struct
+
+      type registerfile = Word32.word ImmArray.immarray;
+
+      fun InitRegisterFile ()
+	  = ImmArray.update
+	    (ImmArray.update
+	     (ImmArray.update
+	      (ImmArray.update
+	       (ImmArray.immarray(32, 0wx00000000 : Word32.word),
+		00, 0wx00000000 : Word32.word),
+	       28, 0wx00000000 : Word32.word),
+	      29, 0wx00040000 : Word32.word),
+	     30, 0wx00040000 : Word32.word) : registerfile;
+
+      fun LoadRegister (rf, reg) = ImmArray.sub(rf, reg);
+
+      fun StoreRegister (rf, reg, data) = ImmArray.update(rf, reg, data);
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * ALU.sml
+ *
+ * This defines the ALU structure, which provides the functionality of
+ * an Arithmetic/Logic Unit.  The datatype ALUOp provides a means to
+ * specify which operation is to be performed by the ALU, and
+ * PerformAL performs one of the operations on two thirty-two bit
+ * words, returning the result as a thirty-two bit word.
+ *
+ * A note about SML'97 Basis Library implementation of thirty-two bit
+ * numbers: the Word32.word is an unsigned thirty-two bit integer,
+ * while Int.int (equivalent to Int.int) is a signed thirty-two
+ * bit integer.  In order to perform the signed operations, it is
+ * necessary to convert the words to signed form, using the
+ * Word32.toIntX function, which performs sign extension,
+ * and to convert the result back into unsigned form using the
+ * Word32.fromInt function.  In addition, to perform a shift,
+ * the second Word32.word needs to be "downsized" to a normal
+ * Word.word using the Word.fromWord function.
+ *)
+
+structure ALU : ALU
+  = struct
+
+      datatype ALUOp = SLL | SRL | SRA |
+	               ADD | ADDU |
+		       SUB | SUBU |
+		       AND | OR | XOR |
+		       SEQ | SNE |
+		       SLT | SGT |
+		       SLE | SGE;
+
+      fun PerformAL (opcode, s1, s2) =
+	(case opcode
+	   of SLL =>
+	        Word32.<< (s1, Word.fromLargeWord (Word32.toLargeWord s2))
+	    | SRL =>
+	        Word32.>> (s1, Word.fromLargeWord (Word32.toLargeWord s2))
+	    | SRA =>
+	        Word32.~>> (s1, Word.fromLargeWord (Word32.toLargeWord s2))
+	    | ADD =>
+		Word32.fromInt (Int.+ (Word32.toIntX s1,
+						 Word32.toIntX s2))
+	    | ADDU =>
+		Word32.+ (s1, s2)
+	    | SUB =>
+		Word32.fromInt (Int.- (Word32.toIntX s1,
+						 Word32.toIntX s2))
+	    | SUBU =>
+		Word32.- (s1, s2)
+	    | AND =>
+		Word32.andb (s1, s2)
+	    | OR =>
+		Word32.orb (s1, s2)
+	    | XOR =>
+		Word32.xorb (s1, s2)
+	    | SEQ =>
+		if (s1 = s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word
+	    | SNE =>
+		if not (s1 = s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word
+	    | SLT =>
+		if Int.< (Word32.toIntX s1, Word32.toIntX s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word
+	    | SGT =>
+		if Int.> (Word32.toIntX s1, Word32.toIntX s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word
+	    | SLE =>
+		if Int.<= (Word32.toIntX s1, Word32.toIntX s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word
+	    | SGE =>
+		if Int.>= (Word32.toIntX s1, Word32.toIntX s2)
+		  then 0wx00000001 : Word32.word
+		  else 0wx00000000 : Word32.word)
+	   (*
+	    * This handle will handle all ALU errors, most
+	    * notably overflow and division by zero, and will
+	    * print an error message and return 0.
+	    *)
+	   handle _ =>
+	     (print "Error : ALU returning 0\n";
+	      0wx00000000 : Word32.word);
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * Memory.sml
+ *
+ * This defines the Memory structure, which provides the functionality
+ * of memory.  The datatype memory provides the encapsulation of
+ * memory, InitMemory initializes memory, setting all
+ * addresses to zero, LoadWord takes memory and
+ * a Word32.word corresponding to the address, and returns the
+ * Word32.word value at that address and the updated memory,
+ * StoreWord takes memory, a Word32.word corresponding to the
+ * address, and a Word32.word and returns memory updated with the word
+ * stored at the appropriate address.  LoadHWord, LoadHWordU,
+ * LoadByte, and LoadByteU load halfwords, unsigned halfwords,
+ * bytes, and unsigned bytes respectively from memory into the
+ * lower portion of the returned Word32.word.  StoreHWord and
+ * StoreByte store halfwords and bytes taken from the lower portion
+ * of the Word32.word into memory.
+ * GetStatistics takes memory and returns the read and write
+ * statistics as a string.
+ *
+ * The underlying structure of memory is an immutable array of Word32.word.
+ * The array has a length of 0x10000, since every element of the array
+ * corresponds to a thirty-two bit integer.
+ *
+ * Also, the functions AlignWAddress and AlignHWAddress aligns a memory
+ * address to a word and halfword address, respectively.  If LoadWord,
+ * StoreWord, LoadHWord, LoadHWordU, or StoreHWord is asked to access an
+ * unaligned address, it writes an error message, and uses the address
+ * rounded down to the aligned address.
+ *)
+
+structure Memory : MEMORY
+  = struct
+
+      type memory = Word32.word ImmArray.immarray * (int * int);
+
+      fun InitMemory () =
+	(ImmArray.immarray(Word32.toInt(0wx10000 : Word32.word),
+			   0wx00000000 : Word32.word),
+	 (0, 0)) : memory;
+
+      fun AlignWAddress address
+	  = Word32.<< (Word32.>> (address, 0wx0002), 0wx0002);
+
+      fun AlignHWAddress address
+	  = Word32.<< (Word32.>> (address, 0wx0001), 0wx0001);
+
+      (* Load and Store provide errorless access to memory.
+       * They provide a common interface to memory, while
+       * the LoadX and StoreX specifically access words,
+       * halfwords and bytes, requiring address to be aligned.
+       * In Load and Store, two intermediate values are
+       * generated.  The value aligned_address is the aligned
+       * version of the given address, and is used to compare with
+       * the original address to determine if it was aligned.  The
+       * value use_address is equivalent to aligned_address divided
+       * by four, and it corresponds to the index of the memory
+       * array where the corresponding aligned address can be found.
+       *)
+
+      fun Load ((mem, (reads, writes)), address)
+	  = let
+	      val aligned_address = AlignWAddress address;
+	      val use_address = Word32.>> (aligned_address, 0wx0002);
+	    in
+	      ((mem, (reads + 1, writes)),
+	       ImmArray.sub(mem, Word32.toInt(use_address)))
+	    end;
+
+      fun Store ((mem, (reads, writes)), address, data)
+ 	  = let
+	      val aligned_address = AlignWAddress address;
+	      val use_address = Word32.>> (aligned_address, 0wx0002);
+	    in
+	      (ImmArray.update(mem, Word32.toInt(use_address), data),
+	       (reads, writes + 1))
+	    end;
 
 
+      fun LoadWord (mem, address)
+	  = let
+	      val aligned_address
+		  = if address = AlignWAddress address
+		      then address
+		      else (print "Error LW: Memory using aligned address\n";
+			    AlignWAddress address);
+	    in
+	      Load(mem, aligned_address)
+	    end;
+
+      fun StoreWord (mem, address, data)
+ 	  = let
+	      val aligned_address
+		  = if address = AlignWAddress address
+		      then address
+		      else (print "Error SW: Memory using aligned address\n";
+			    AlignWAddress address);
+	    in
+	      Store(mem, aligned_address, data)
+	    end;
+
+      fun LoadHWord (mem, address)
+	  = let
+	      val aligned_address
+		  = if address = AlignHWAddress address
+		      then address
+		      else (print "Error LH: Memory using aligned address\n";
+			    AlignHWAddress address);
+	      val (nmem,l_word) = Load(mem, aligned_address);
+	    in
+	      (nmem,
+	       case aligned_address
+		 of 0wx00000000 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word, 0wx0010),
+				 0wx0010)
+		  | 0wx00000010 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word, 0wx0000),
+				 0wx0010)
+		  | _ => (print "Error LH: Memory returning 0\n";
+			  0wx00000000 : Word32.word))
+	    end;
+
+      fun LoadHWordU (mem, address)
+	  = let
+	      val aligned_address
+		  = if address = AlignHWAddress address
+		      then address
+		      else (print "Error LHU: Memory using aligned address\n";
+			    AlignHWAddress address);
+	      val (nmem, l_word) = Load(mem, aligned_address);
+	    in
+	      (nmem,
+	       case aligned_address
+		 of 0wx00000000 : Word32.word
+		   => Word32.>>(Word32.<<(l_word, 0wx0010),
+				0wx0010)
+		  | 0wx00000010 : Word32.word
+		   => Word32.>>(Word32.<<(l_word, 0wx0000),
+				0wx0010)
+		  | _ => (print "Error LHU: Memory returning 0\n";
+			  0wx00000000 : Word32.word))
+	    end;
+
+      fun StoreHWord (mem, address, data)
+ 	  = let
+	      val aligned_address
+		  = if address = AlignHWAddress address
+		      then address
+		      else (print "Error SH: Memory using aligned address\n";
+			    AlignWAddress address);
+	      val (_, s_word) = Load(mem, aligned_address);
+	    in
+	      case aligned_address
+		of 0wx00000000 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wxFFFF0000 : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx0000FFFF :
+							    Word32.word,
+							    data),
+						0wx0000)))
+		 | 0wx00000010 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wx0000FFFF : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx0000FFFF :
+							    Word32.word,
+							    data),
+						0wx0010)))
+		 | _ => (print "Error SH: Memory unchanged\n";
+			 mem)
+	    end;
+
+      fun LoadByte (mem, address)
+	  = let
+	      val aligned_address = address;
+	      val (nmem, l_word) = Load(mem, aligned_address);
+	    in
+	      (nmem,
+	       case aligned_address
+		 of 0wx00000000 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word,
+					   0wx0018),
+				 0wx0018)
+		  | 0wx00000008 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word,
+					   0wx0010),
+				 0wx0018)
+		  | 0wx00000010 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word,
+					   0wx0008),
+				 0wx0018)
+		  | 0wx00000018 : Word32.word
+		   => Word32.~>>(Word32.<<(l_word,
+					   0wx0000),
+				 0wx0018)
+		  | _ => (print "Error LB: Memory returning 0\n";
+			  0wx00000000 : Word32.word))
+	    end;
+
+      fun LoadByteU (mem, address)
+	  = let
+	      val aligned_address = address;
+	      val (nmem, l_word) = Load(mem, aligned_address);
+	    in
+	      (nmem,
+	       case aligned_address
+		 of 0wx00000000 : Word32.word
+		   => Word32.>>(Word32.<<(l_word,
+					  0wx0018),
+				0wx0018)
+		  | 0wx00000008 : Word32.word
+		   => Word32.>>(Word32.<<(l_word,
+					  0wx0010),
+				0wx0018)
+		  | 0wx00000010 : Word32.word
+		   => Word32.>>(Word32.<<(l_word,
+					  0wx0008),
+				0wx0018)
+		  | 0wx00000018 : Word32.word
+		   => Word32.>>(Word32.<<(l_word,
+					  0wx0000),
+				0wx0018)
+		  | _ => (print "Error LBU: Memory returning 0\n";
+			  0wx00000000 : Word32.word))
+	    end;
+
+      fun StoreByte (mem, address, data)
+ 	  = let
+	      val aligned_address = address;
+	      val (_, s_word) = Load(mem, aligned_address);
+	    in
+	      case aligned_address
+		of 0wx00000000 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wxFFFFFF00 : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx000000FF :
+							    Word32.word,
+							    data),
+						0wx0000)))
+		 | 0wx00000008 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wxFFFF00FF : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx000000FF :
+							    Word32.word,
+							    data),
+						0wx0008)))
+		 | 0wx00000010 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wxFF00FFFF : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx000000FF :
+							    Word32.word,
+							    data),
+						0wx0010)))
+		 | 0wx00000018 : Word32.word
+		  => Store(mem, aligned_address,
+			   Word32.orb(Word32.andb(0wx00FFFFFF : Word32.word,
+						  s_word),
+				      Word32.<<(Word32.andb(0wx000000FF :
+							    Word32.word,
+							    data),
+						0wx0018)))
+		 | _ => (print "Error SB: Memory unchanged\n";
+			 mem)
+	    end;
+
+      fun GetStatistics (mem, (reads, writes))
+	  = "Memory :\n" ^
+	    "Memory Reads : " ^ (Int.toString reads) ^ "\n" ^
+	    "Memory Writes : " ^ (Int.toString writes) ^ "\n";
+
+    end
 
 
 (* ************************************************************************* *)
@@ -2833,6 +2713,8 @@ val GCD = ["0C000002",
 
 fun runGCD args = DLXSimulatorC1.run_prog GCD args
 
+in
+
 structure Main =
    struct
       fun doit 0 = ()
@@ -2840,9 +2722,11 @@ structure Main =
                    ; doit (n - 1)
                    )
 
-      val doit = fn () => doit 20
-      fun main (name,args) =
-          ( doit()
+      fun main (name, args) =
+          ( doit 20
           ; OS.Process.success
           )
+
    end
+
+end

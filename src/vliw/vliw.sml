@@ -117,7 +117,6 @@ struct
   val dec = fn x => (x := !x - 1)
 end
 
-in
 (* stringmap.sml *)
 
 structure Stringmap : STRINGMAP =
@@ -3592,22 +3591,23 @@ ReadI.write_debug := false;
 ReadI.live_debug := false
 )
 
-fun pm pl = print (StrPak.stringListString (map ReadI.progMap pl));
-fun pp pl = print (StrPak.stringListString (map PrintAbs.str pl));
+fun pm pl = print (StrPak.stringListString (map ReadI.progMap pl))
+fun pp pl = print (StrPak.stringListString (map PrintAbs.str pl))
 
 fun ndnm nil = raise Node.NAMETONODE
 | ndnm(h::t) = (fn (nm) => Node.nameToNode(h, nm)
-		handle Node.NAMETONODE => ndnm t nm);
+		handle Node.NAMETONODE => ndnm t nm)
 
-exception ERROR;
+exception ERROR
 
-fun err (s:string) = (print s; raise ERROR);
+fun err (s:string) = (print s; raise ERROR)
 
 fun pmem nil = (err "oh well")
   | pmem ((ns, n0, f)::t) =
     fn n => if Set.member(ns, n) then (ns, n0, f)
-	    else pmem t n;
+	    else pmem t n
 
+in
 structure Main = struct
 
 fun doitx (ifile:string, ofile:string, c_ofile:string, ws:int) =

@@ -1,5 +1,4 @@
 local $(SML_LIB)/basis/basis.mlb
-      ../lib/github.com/diku-dk/sml-random/random.mlb
       uf0.sml
 in uf.sml
 end

@@ -619,7 +619,7 @@ fun kb_completion (arg as (n, rules, list, k, l, eps)) =
 fun kb_complete complete_rules (* the terms in the complete_rules are global *) rules =
     let val n = check_rules complete_rules
         val eqs = map (fn (_,(_,pair)) => pair) rules
-        val completed_rules = kb_completion (n, copy_rules complete_rules, [], n, n, copy_termpairlist eqs)
+        val completed_rules = kb_completion (n, (*copy_rules*) complete_rules, [], n, n, (*copy_termpairlist*) eqs)
     in length completed_rules
     end
 

@@ -1,4 +1,5 @@
 
+local
 structure UF = struct
   datatype 'a t0 = ECR of 'a * int
                  | PTR of 'a t
@@ -30,7 +31,9 @@ end
 
 (* Benchmarking *)
 
-structure Main = struct
+in
+structure Main : sig val main : string * string list -> OS.Process.status end =
+struct
 
 fun doN n f = if n <= 0 then ()
               else (f (); doN (n-1) f)
@@ -43,26 +46,35 @@ fun main (name, arguments) =
         val F = 500000
         val R = 20
 
-        val rnd =
-            let val rng = Random.newgenseed 1.37
-                val g = Random.range (0,N-1)
-            in fn () => g rng
+        val a = 0w16807
+        val b = 0w223
+
+        val seed = ref b
+        fun rnd () =
+            let val t = a * !seed
+            in seed := t ; Word.toIntX(t mod (Word.fromInt N))
             end
+
+        fun sub (a,i) = Vector.sub(a,i)
+
+(*        fun sub (a : 'a vector, i : int) : 'a = prim ("word_sub0", (a, i)) *)
 
         fun doit () =
             let val elems = Vector.tabulate (N, uref)
-                fun rndElem () = Vector.sub(elems,rnd())
+                fun rndElem () = sub(elems,rnd())
             in doN U (fn () => union(rndElem(),rndElem()))
              ; doN F (fn () => find(rndElem()))
             end
-    in print ("Starting [N=" ^ Int.toString N ^
-              ", Unions=" ^ Int.toString U ^
-              ", Finds=" ^ Int.toString F ^
-              ", Repeats=" ^ Int.toString R ^
-              "]\n")
+        fun pr s i = print (s ^ Int.toString i ^ "\n")
+    in print "Starting..\n"
+     ; pr "N=" N
+     ; pr "Unions=" U
+     ; pr "Finds=" F
+     ; pr "Repeats=" R
      ; doN R doit
      ; print "Done.\n"
      ; OS.Process.success
     end
 
+end
 end

@@ -1,7 +1,3 @@
 $(SML_LIB)/basis/basis.mlb
-term.sml
-trail.sml
-unify.sml
-data.sml
-main0.sml
+one.sml
 main.sml
