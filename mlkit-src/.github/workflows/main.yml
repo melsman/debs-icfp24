@@ -1,0 +1,178 @@
+# This is the MLKit main workflow for building and testing the MLKit
+# on various architectures.  The workflow contains a job called
+# "build-test-deploy". It is triggered on push or pull request events
+# on the master branch. It is also triggered when a tag is pushed, in
+# which case a binary distribution is deployed. The build matrix is
+# currently setup to run only with mlkit as the primary SML compiler.
+
+name: CI
+
+on:
+
+  push:
+    branches: [ master ]
+
+    tags:
+    - 'v*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+  pull_request:
+    branches: [ master ]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+jobs:
+
+  build-test-deploy:
+
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-12]
+        mlcomp: [mlkit, mlton]
+#        mlcomp: [mlton]
+#        mlcomp: [mlkit]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+      - uses: actions/checkout@v2
+
+      - name: Setup environment
+        run: |
+          echo "OS=$(uname -s | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+          echo "RUNHOME=$(echo $HOME)" >> $GITHUB_ENV
+
+      - name: Install dependencies (linux)
+        if: ${{ env.OS == 'linux' }}
+        run: |
+          # sudo apt-get -qq update
+          sudo apt-get install -y gcc autoconf make
+
+      - name: Install dependencies (linux, mlton)
+        if: ${{ env.OS == 'linux' && matrix.mlcomp == 'mlton' }}
+        run: |
+          # sudo apt-get -qq update
+          sudo apt-get install -y mlton
+
+      - name: Install dependencies (macos)
+        if: ${{ env.OS == 'darwin' }}
+        run: |
+          brew install gcc autoconf make
+          brew tap homebrew/cask
+          brew install --cask phantomjs
+
+      - name: Install dependencies (macos, mlton)
+        if: ${{ env.OS == 'darwin' && matrix.mlcomp == 'mlton' }}
+        run: |
+          # The brew version of MLton has a bug
+          brew install mlton --HEAD
+
+      - name: Install MLKit and smlpkg
+        working-directory: ${{ env.RUNHOME }}
+        run: |
+          echo "[OS: $OS, HOME: $RUNHOME]"
+          wget https://github.com/diku-dk/smlpkg/releases/download/v0.1.4/smlpkg-bin-dist-${{env.OS}}.tgz
+          tar xzf smlpkg-bin-dist-${{env.OS}}.tgz
+          echo "$HOME/smlpkg-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
+          wget https://github.com/melsman/mlkit/releases/download/v4.7.4/mlkit-bin-dist-${{env.OS}}.tgz
+          tar xzf mlkit-bin-dist-${{env.OS}}.tgz
+          echo "$HOME/mlkit-bin-dist-${{env.OS}}/bin" >> $GITHUB_PATH
+          mkdir -p .mlkit
+          echo "SML_LIB $HOME/mlkit-bin-dist-${{env.OS}}/lib/mlkit" > .mlkit/mlb-path-map
+
+      - name: Check MLton
+        if: ${{ matrix.mlcomp == 'mlton' }}
+        run: |
+          mlton
+          echo 'github.event_name: ' ${{ github.event_name }}
+          echo 'github.ref: ' ${{ github.ref }}
+
+      - name: Check MLKit
+        if: ${{ matrix.mlcomp == 'mlkit' }}
+        run: |
+          mlkit --version
+          smlpkg --version
+          echo 'github.event_name: ' ${{ github.event_name }}
+          echo 'github.ref: ' ${{ github.ref }}
+
+      - name: Configure With MLton
+        if: ${{ matrix.mlcomp == 'mlton' }}
+        run: |
+          ./autobuild
+          ./configure --with-compiler='mlton @MLton ram-slop 0.7 -- -drop-pass deepFlatten -drop-pass refFlatten -verbose 2'
+
+      - name: Configure With MLKit
+        if: ${{ matrix.mlcomp == 'mlkit' }}
+        run: |
+          ./autobuild
+          ./configure --with-compiler=mlkit
+
+      - name: Build MLKit
+        timeout-minutes: 120
+        run: |
+          make mlkit
+          make mlkit_basislibs
+
+      - name: Install MLKit
+        run: |
+          sudo make install
+
+      - name: Run MLKit tests
+        run: |
+          make -C test_dev test
+          make -C test_dev test_prof
+          make -C test test_mlkit
+          make -C test test_mlkit_no_gc
+          make -C test/explicit_regions all
+          make -C test/repl all
+          make -C test/parallelism all
+
+      - name: Configure SmlToJs
+        if: ${{ matrix.mlcomp == 'mlton' }}
+        run: |
+          ./configure --with-compiler="SML_LIB=`pwd` `pwd`/bin/mlkit"
+
+      - name: Build SmlToJs
+        run: |
+          make smltojs
+          make smltojs_basislibs
+
+      - name: Install SmlToJs
+        run: |
+          sudo make install_smltojs
+
+      - name: Run SmlToJs tests
+        run: |
+          make -C js/test test
+
+      - name: Build binary distribution
+        run: |
+          make mlkit_bin_dist
+
+      - name: Install binary distribution and test it
+        run: |
+          mkdir -p ${{ env.RUNHOME }}/tmp
+          cp dist/mlkit-bin-dist-${{ env.OS }}.tgz ${{ env.RUNHOME }}/tmp/
+          cd ${{ env.RUNHOME }}/tmp/
+          tar xzf mlkit-bin-dist-${{ env.OS }}.tgz
+          cd mlkit-bin-dist-${{ env.OS }}
+          sudo make install
+          cd ${{ env.RUNHOME }}
+          rm -rf ${{ env.RUNHOME }}/.mlkit ${{ env.RUNHOME }}/tmp
+          SML_LIB=/usr/local/lib/mlkit /usr/local/bin/mlkit --version
+          SML_LIB=/usr/local/lib/mlkit /usr/local/bin/smltojs --version
+          echo "val a = 10+32; :quit;" | SML_LIB=/usr/local/lib/mlkit /usr/local/bin/mlkit
+
+      - name: Test bootstrapping
+        run: |
+          make bootstrap
+
+      - name: Upload release
+        if: ${{ matrix.mlcomp == 'mlton' && github.event_name == 'push' && contains(github.ref, '/tags/v') }}
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: dist/mlkit-bin-dist-${{ env.OS }}.tgz
+          tag: ${{ github.ref }}
+          overwrite: true

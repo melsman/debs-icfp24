@@ -1,0 +1,44 @@
+= CommonSubexp
+
+<<CommonSubexp#>> is an optimization pass for the <<SSA#>>
+<<IntermediateLanguage#>>, invoked from <<SSASimplify#>>.
+
+== Description
+
+It eliminates instances of common subexpressions.
+
+== Implementation
+
+* https://github.com/MLton/mlton/blob/master/mlton/ssa/common-subexp.fun[`common-subexp.fun`]
+
+== Details and Notes
+
+In addition to getting the usual sorts of things like
+
+* {empty}
++
+----
+(w + 0wx1) + (w + 0wx1)
+----
++
+rewritten to
++
+----
+let val w' = w + 0wx1 in w' + w' end
+----
+
+it also gets things like
+
+* {empty}
++
+----
+val a = Array_uninit n
+val b = Array_length a
+----
++
+rewritten to
++
+----
+val a = Array_uninit n
+val b = n
+----

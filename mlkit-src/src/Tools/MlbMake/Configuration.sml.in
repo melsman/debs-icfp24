@@ -1,0 +1,2 @@
+structure Configuration :> CONFIGURATION =
+  struct

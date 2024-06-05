@@ -1,0 +1,11 @@
+(* Do NOT modify the file "kit/src/Version.sml" directly - it is generated
+ * from "kit/src/Version.sml.in" when executing kit/configure. To modify the
+ * version, change the file kit/configure.ac before executing kit/autobuild
+ * and kit/configure. *)
+structure Version =
+  struct
+    val version = "@PACKAGE_VERSION@"
+    val gitversion = "@GITVERSION@"
+    val commit_date = "@COMMITDATE@"
+    val configure_date = "@DATE@"
+  end

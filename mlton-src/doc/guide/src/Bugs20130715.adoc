@@ -1,0 +1,47 @@
+= Bugs20130715
+
+Here are the known bugs in <<Release20130715#,MLton 20130715>>, listed
+in reverse chronological order of date reported.
+
+* [[bug06]]
+Bug with simultaneous `sharing` of multiple structures.
++
+Fixed by commit https://github.com/MLton/mlton/commit/9cb5164f6[`9cb5164f6`].
+
+* [[bug05]]
+Minor bug with exception replication.
++
+Fixed by commit https://github.com/MLton/mlton/commit/1c89c42f6[`1c89c42f6`].
+
+* [[bug04]]
+Minor bug erroneously accepting symbolic identifiers for strid, sigid, and fctid
+and erroneously accepting symbolic identifiers before `.` in long identifiers.
++
+Fixed by commit https://github.com/MLton/mlton/commit/9a56be647[`9a56be647`].
+
+* [[bug03]]
+Minor bug in precedence parsing of function clauses.
++
+Fixed by commit https://github.com/MLton/mlton/commit/1a6d25ec9[`1a6d25ec9`].
+
+* [[bug02]]
+Performance bug in creation of worker threads to service calls of `_export`-ed
+functions.
++
+Thanks to Bernard Berthomieu for the bug report.
++
+Fixed by commit https://github.com/MLton/mlton/commit/97c2bdf1d[`97c2bdf1d`].
+
+* [[bug01]]
+Bug in `MLton.IntInf.fromRep` that could yield values that violate the `IntInf`
+representation invariants.
++
+Thanks to Rob Simmons for the bug report.
++
+Fixed by commit https://github.com/MLton/mlton/commit/3add91eda[`3add91eda`].
+
+* [[bug00]]
+Bug in equality status of some arrays, vectors, and slices in Basis Library
+implementation.
++
+Fixed by commit https://github.com/MLton/mlton/commit/a7ed9cbf1[`a7ed9cbf1`].

@@ -1,0 +1,174 @@
+(* Copyright (C) 2009,2019,2021-2022 Matthew Fluet.
+ * Copyright (C) 2004-2006 Henry Cejtin, Matthew Fluet, Suresh
+ *    Jagannathan, and Stephen Weeks.
+ *
+ * MLton is released under a HPND-style license.
+ * See the file MLton-LICENSE for details.
+ *)
+
+ann "forceUsed" in
+   local
+      basic/sources.mlb
+   in
+      signature APPEND_LIST
+      signature ARRAY
+      signature ARRAY2
+      signature ASSERT
+      signature BOOL
+      signature BUFFER
+      signature CLEARABLE_PROMISE
+      signature COMMAND_LINE
+      signature COUNTER
+      signature DIR
+      signature ENV
+      signature ERROR
+      signature ESCAPE
+      (* signature EUCLIDEAN_RING *)
+      signature EXN
+      signature FIXED_POINT
+      signature INSERTION_SORT
+      signature INTEGER
+      signature INT_INF
+      signature JUSTIFY
+      signature LAYOUT
+      signature LIST
+      signature OPTION
+      signature ORDER
+      (* signature ORDERED_RING *)
+      signature PARSE
+      signature PARSE_SEXP
+      signature PROCESS
+      signature PROMISE
+      signature QUEUE
+      signature QUICK_SORT
+      signature REAL
+      signature REF
+      signature RELATION
+      signature RESULT
+      (* signature RING *)
+      (* signature RING_WITH_IDENTITY *)
+      signature SEXP
+      signature STREAM
+      signature STRING
+      signature SUBSTRING
+      signature T
+      signature TREE
+      signature UNIQUE_ID
+      signature UNIQUE_SET
+      signature UNIT
+      signature WORD
+      signature VECTOR
+
+      structure AppendList
+      structure Array
+      structure Array2
+      structure Assert
+      structure BinarySearch
+      structure Bool
+      structure Buffer
+      structure Char
+      structure CharArray
+      structure CharVector
+      structure ChoicePattern
+      structure ClearablePromise
+      structure CommandLine
+      structure Computation
+      structure Counter
+      structure Date
+      structure Dir
+      structure DirectedGraph
+      structure Dot
+      structure DotColor
+      structure Error
+      structure Escape
+      structure Exn
+      structure File
+      structure FileDesc
+      structure FixedPoint
+      structure Function
+      structure Hash
+      structure HashSet
+      structure HashTable
+      structure In
+      structure Int
+      structure IntInf
+      structure InsertionSort
+      structure Justify
+      structure Layout
+      structure List
+      structure MLton
+      structure OS
+      structure Option
+      structure Out
+      structure Parse
+      structure ParseSexp
+      structure Pervasive
+      structure Pid
+      structure Popt
+      structure Position
+      structure Process
+      structure Promise
+      structure Property
+      structure PropertyList
+      structure Queue
+      structure QuickSort
+      structure Random
+      structure Real
+      structure Real32
+      structure Real64
+      structure Ref
+      structure Regexp
+      structure Relation
+      structure Result
+      structure Sexp
+      structure Stream
+      structure String
+      structure StringCvt
+      structure Substring
+      structure Time
+      structure Trace
+      structure Tree
+      structure Unit
+      structure Vector
+      structure Word
+      structure Word8
+
+      functor Control
+      functor Env
+      functor IntUniqueId
+      functor MonoArray
+      functor MonoVector
+      functor PolyEnv
+      functor Tree
+      functor UniqueId
+      functor UniqueSet
+
+      $(SML_LIB)/basis/pervasive.mlb
+   end
+   local
+      set/sources.mlb
+   in
+      signature SET
+      structure DisjointSet
+      functor OrderedUniqueSet
+      functor UnorderedSet
+   end
+   local
+      env/sources.mlb
+   in
+      functor MonoEnv
+   end
+   local
+      lattice/sources.mlb
+   in
+      functor FlatLatticeMono
+      functor FlatLatticeParam
+      functor FlatLatticePoly
+      functor FlatLatticeRec
+      functor NPointLattice
+      functor PowerSetLattice_ListSet
+      functor PowerSetLattice_UniqueSet
+      functor ThreePointLattice
+      functor TwoPointLattice
+   end
+end

@@ -1,0 +1,30 @@
+(* Copyright (C) 2022 Matthew Fluet.
+ * Copyright (C) 1999-2005 Henry Cejtin, Matthew Fluet, Suresh
+ *    Jagannathan, and Stephen Weeks.
+ * Copyright (C) 1997-2000 NEC Research Institute.
+ *
+ * MLton is released under a HPND-style license.
+ * See the file MLton-LICENSE for details.
+ *)
+
+Library
+
+signature ENV
+signature MONO_ENV
+signature POLY_CACHE
+
+structure PolyCache
+
+functor MakeMonoEnv
+functor MonoEnv
+
+is
+
+../basic/sources.cm
+
+mono-env.sig
+basic-env-to-env.fun
+mono-env.fun
+finite-function.sig
+poly-cache.sig
+poly-cache.fun

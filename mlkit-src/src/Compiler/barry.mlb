@@ -1,0 +1,17 @@
+local
+  prebackend.mlb
+  open BasLib
+in
+  local open Compiler Tools
+  in local open CompilerObjects Compiler 
+     in Backend/Barry/CompileBarry.sml 
+     end
+     local open Pickle Manager
+     in Backend/Barry/CompileBasisBarry.sml
+        local open Basics CompilerObjects 
+        in Backend/Barry/ExecutionBarry.sml 
+        end
+     end
+     ../Common/KitBarry.sml
+  end
+end

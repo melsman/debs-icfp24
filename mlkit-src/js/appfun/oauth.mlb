@@ -1,0 +1,5 @@
+local $(SML_LIB)/basis/basis.mlb
+      $(SML_LIB)/basis/js.mlb
+in oauth.sig
+   oauth.sml
+end

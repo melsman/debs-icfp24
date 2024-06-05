@@ -1,0 +1,34 @@
+local
+
+  $(SML_LIB)/basis/basis.mlb
+  basis ListUtil = bas LISTSORT.sig Listsort.sml end
+  basis Polyhash = bas POLYHASH.sig Polyhash.sml end
+
+  local
+    local 
+      SPLAYTREE.sig Splaytree.sml
+    in
+      basis Splay = 
+        bas SPLAYMAP.sig Splaymap.sml SPLAYSET.sig Splayset.sml end
+    end
+    basis BinMap = 
+      bas BINARYMAP.sig Binarymap.sml INTMAP.sig Intmap.sml end
+    basis BinSet = 
+      bas BINARYSET.sig INTSET.sig Binaryset.sml Intset.sml end
+  in
+   basis SetsAndMaps = 
+     bas open Splay BinMap BinSet end
+  end
+
+  basis Regexp =  (* Regular expression support *)
+    bas REG_EXP.sml local open SetsAndMaps in RegExp.sml end end
+
+  basis Susp =  (* Suspension *) 
+    bas SUSP.sig Susp.sml end
+(*
+  basis Sml90 = 
+    bas SML90.sml end
+*)
+in open ListUtil Polyhash SetsAndMaps Regexp Susp (*Sml90*)
+end
+

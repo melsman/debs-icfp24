@@ -1,0 +1,4 @@
+$(SML_LIB)/basis/basis.mlb
+stream.sig
+stream.sml
+streamtest.sml

@@ -158,6 +158,163 @@ signature IMMARRAY
       val map : ('a -> 'b) -> 'a immarray -> 'b immarray;
     end
 
+
+(* ************************************************************************* *)
+
+(*
+ * RegisterFile.sig
+ *
+ * This defines the exported datatype and functions provided by the
+ * register file.  The datatype registerfile provides the encapsulation
+ * of the register file, InitRegisterFile initializes the registerfile,
+ * setting all registers to zero and setting r0, gp, sp, and fp to
+ * their appropriate values, LoadRegister takes a registerfile and
+ * an integer corresponding to the register, and returns the
+ * Word32.word value at that register, and StoreRegister takes a
+ * registerfile, an integer corresponding to the register, and a
+ * Word32.word and returns the registerfile updated with the word
+ * stored in the appropriate register.
+ *)
+
+signature REGISTERFILE
+  = sig
+
+      type registerfile
+
+      val InitRegisterFile : unit  -> registerfile
+
+      val LoadRegister : registerfile * int -> Word32.word
+
+      val StoreRegister : registerfile * int * Word32.word -> registerfile
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * ALU.sig
+ *
+ * This defines the exported datatype and function provided by the
+ * ALU.  The datatype ALUOp provides a means to specify which
+ * operation is to be performed by the ALU, and PerformAL performs
+ * one of the operations on two thirty-two bit words, returning the
+ * result as a thirty-two bit word.
+ *)
+
+signature ALU
+  = sig
+
+      datatype ALUOp = SLL | SRL | SRA |
+	               ADD | ADDU |
+		       SUB | SUBU |
+		       AND | OR | XOR |
+		       SEQ | SNE |
+		       SLT | SGT |
+		       SLE | SGE
+
+      val PerformAL : (ALUOp * Word32.word * Word32.word) -> Word32.word
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * Memory.sig
+ *
+ * This defines the exported datatype and functions provided by
+ * memory.  The datatype memory provides the encapsulation
+ * of memory, InitMemory initializes memory, setting all
+ * addresses to zero, LoadWord takes memory and
+ * a Word32.word corresponding to the address, and returns the
+ * Word32.word value at that address, StoreWord takes memory,
+ * a Word32.word corresponding to the address, and a
+ * Word32.word and returns memory updated with the word
+ * stored at the appropriate address.  LoadHWord, LoadHWordU,
+ * LoadByte, and LoadByteU load halfwords, unsigned halfwords,
+ * bytes, and unsigned bytes respectively from memory into the
+ * lower portion of the returned Word32.word.  StoreHWord and
+ * StoreByte store halfwords and bytes taken from the lower portion
+ * of the Word32.word into memory.
+ * GetStatistics takes memory and returns the read and write
+ * statistics as a string.
+ *)
+
+signature MEMORY
+  = sig
+
+      type memory
+
+      val InitMemory : unit -> memory
+
+      val LoadWord : memory * Word32.word -> memory * Word32.word
+      val StoreWord : memory * Word32.word * Word32.word -> memory
+
+      val LoadHWord : memory * Word32.word -> memory * Word32.word
+      val LoadHWordU : memory * Word32.word -> memory * Word32.word
+      val StoreHWord : memory * Word32.word * Word32.word -> memory
+
+      val LoadByte : memory * Word32.word -> memory * Word32.word
+      val LoadByteU : memory * Word32.word -> memory * Word32.word
+      val StoreByte : memory * Word32.word * Word32.word -> memory
+
+      val GetStatistics : memory -> string
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * CacheSpec.sig
+ *
+ * This defines the signature that outlines the specifications to
+ * describe a cache.  The two datatypes are given to provide clear
+ * means of differentiating between the write hit and write miss
+ * options.  CacheName can be any string describing the cache.
+ * CacheSize is an integer that represents the total number of words
+ * in the cache.  BlockSize is an integer that represents the total
+ * number of words in a block.  Associativity is an integer that
+ * represents the associativity of the cache.  WriteHit and WriteMiss
+ * represent the write hit and write miss options to be implemented by
+ * this cache.
+ *)
+
+signature CACHESPEC
+  = sig
+
+      datatype WriteHitOption = Write_Through
+                              | Write_Back;
+
+      datatype WriteMissOption = Write_Allocate
+                               | Write_No_Allocate;
+
+      val CacheName : string;
+      val CacheSize : int;
+      val BlockSize : int;
+      val Associativity : int;
+      val WriteHit : WriteHitOption;
+      val WriteMiss : WriteMissOption;
+
+    end
+
+(*****************************************************************************)
+
+(*
+ * DLXSimulator.sig
+ *
+ * This defines the exported function provided by the DLXSimulator.
+ * The function run_file takes a string corresponding to the name of the
+ * file to be run, and executes it.  The function run_prog takes a
+ * list of instructions and executes them.
+ *)
+
+signature DLXSIMULATOR
+  = sig
+
+      val run_file : string -> int list -> unit
+      val run_prog : string list -> int list -> unit
+
+    end
+
 structure ImmArray : IMMARRAY
   = struct
 
@@ -284,208 +441,6 @@ in
 end
 
 
-
-(* ************************************************************************* *)
-
-(*
- * ImmArray2.sml
- *
- * The ImmArray2 structure defines a two dimensional immutable array
- * implementation.  An immarray2 is stored internally as an immutable
- * array of immutable arrays.  As such, the ImmArray2 makes heavy use
- * of the ImmArray structure.
- *
- * The ImmArray2 structure mimics the Array2 structure as much as possible.
- * The most obvious deviation is that unit return types in Array2 are replaced
- * by 'a immarray2 return types in ImmArray2.  Unlike an 'a array,
- * an 'a immarray2 is an equality type if and only if 'a is an equality type.
- * Further immarray2 equality is structural, rather than the "creation"
- * equality used by Array2.  Also, the 'a region type is not included in
- * ImmArray2, but all functions in Array2 that require 'a regions are present
- * with arguments taken in the natural order.  Finally, the functions mapi
- * and map provide similar functionality as modifyi and modify, but relax
- * the constraint that the argument function need be of type 'a -> 'a.
- *)
-
-signature IMMARRAY2
-  = sig
-
-      type 'a immarray2;
-
-      datatype traversal = RowMajor | ColMajor
-
-      val immarray2 : int * int * 'a -> 'a immarray2;
-      val tabulate : traversal -> int * int * ((int * int) -> 'a)
-                     -> 'a immarray2;
-      val fromList : 'a list list -> 'a immarray2;
-      val dimensions : 'a immarray2 -> int * int;
-
-      val sub : 'a immarray2 * int * int -> 'a;
-      val update : 'a immarray2 * int * int * 'a -> 'a immarray2;
-      val extract : 'a immarray2 * int * int * int option * int option
-                    -> 'a immarray2;
-
-      val nRows : 'a immarray2 -> int;
-      val nCols : 'a immarray2 -> int;
-      val row : 'a immarray2 * int -> 'a ImmArray.immarray;
-      val column : 'a immarray2 * int -> 'a ImmArray.immarray;
-
-      val appi : traversal -> (int * int * 'a -> unit)
-                 -> ('a immarray2 * int * int * int option * int option)
-                 -> unit;
-      val app : traversal -> ('a -> unit) -> 'a immarray2 -> unit;
-      val foldli : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-                   -> ('a immarray2 * int * int * int option * int option)
-                   -> 'b
-      val foldri : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-                   -> ('a immarray2 * int * int * int option * int option)
-                   -> 'b
-      val foldl : traversal -> (('a * 'b) -> 'b) -> 'b -> 'a immarray2 -> 'b
-      val foldr : traversal -> (('a * 'b) -> 'b) -> 'b -> 'a immarray2 -> 'b
-      val mapi : traversal -> (int * int * 'a -> 'b)
-                 -> ('a immarray2 * int * int * int option * int option)
-	         -> 'b immarray2;
-      val map : traversal -> ('a -> 'b) -> 'a immarray2 -> 'b immarray2;
-    end
-
-(* ************************************************************************* *)
-
-(*
- * RegisterFile.sig
- *
- * This defines the exported datatype and functions provided by the
- * register file.  The datatype registerfile provides the encapsulation
- * of the register file, InitRegisterFile initializes the registerfile,
- * setting all registers to zero and setting r0, gp, sp, and fp to
- * their appropriate values, LoadRegister takes a registerfile and
- * an integer corresponding to the register, and returns the
- * Word32.word value at that register, and StoreRegister takes a
- * registerfile, an integer corresponding to the register, and a
- * Word32.word and returns the registerfile updated with the word
- * stored in the appropriate register.
- *)
-
-signature REGISTERFILE
-  = sig
-
-      type registerfile;
-
-      val InitRegisterFile : unit  -> registerfile;
-
-      val LoadRegister : registerfile * int -> Word32.word;
-
-      val StoreRegister : registerfile * int * Word32.word -> registerfile;
-
-    end
-
-(*****************************************************************************)
-
-(*
- * ALU.sig
- *
- * This defines the exported datatype and function provided by the
- * ALU.  The datatype ALUOp provides a means to specify which
- * operation is to be performed by the ALU, and PerformAL performs
- * one of the operations on two thirty-two bit words, returning the
- * result as a thirty-two bit word.
- *)
-
-signature ALU
-  = sig
-
-      datatype ALUOp = SLL | SRL | SRA |
-	               ADD | ADDU |
-		       SUB | SUBU |
-		       AND | OR | XOR |
-		       SEQ | SNE |
-		       SLT | SGT |
-		       SLE | SGE;
-
-      val PerformAL : (ALUOp * Word32.word * Word32.word) -> Word32.word;
-
-    end
-
-(*****************************************************************************)
-
-(*
- * Memory.sig
- *
- * This defines the exported datatype and functions provided by
- * memory.  The datatype memory provides the encapsulation
- * of memory, InitMemory initializes memory, setting all
- * addresses to zero, LoadWord takes memory and
- * a Word32.word corresponding to the address, and returns the
- * Word32.word value at that address, StoreWord takes memory,
- * a Word32.word corresponding to the address, and a
- * Word32.word and returns memory updated with the word
- * stored at the appropriate address.  LoadHWord, LoadHWordU,
- * LoadByte, and LoadByteU load halfwords, unsigned halfwords,
- * bytes, and unsigned bytes respectively from memory into the
- * lower portion of the returned Word32.word.  StoreHWord and
- * StoreByte store halfwords and bytes taken from the lower portion
- * of the Word32.word into memory.
- * GetStatistics takes memory and returns the read and write
- * statistics as a string.
- *)
-
-signature MEMORY
-  = sig
-
-      type memory;
-
-      val InitMemory : unit -> memory;
-
-      val LoadWord : memory * Word32.word -> memory * Word32.word;
-      val StoreWord : memory * Word32.word * Word32.word -> memory;
-
-      val LoadHWord : memory * Word32.word -> memory * Word32.word;
-      val LoadHWordU : memory * Word32.word -> memory * Word32.word;
-      val StoreHWord : memory * Word32.word * Word32.word -> memory;
-
-      val LoadByte : memory * Word32.word -> memory * Word32.word;
-      val LoadByteU : memory * Word32.word -> memory * Word32.word;
-      val StoreByte : memory * Word32.word * Word32.word -> memory;
-
-      val GetStatistics : memory -> string;
-
-    end
-
-(*****************************************************************************)
-
-(*
- * CacheSpec.sig
- *
- * This defines the signature that outlines the specifications to
- * describe a cache.  The two datatypes are given to provide clear
- * means of differentiating between the write hit and write miss
- * options.  CacheName can be any string describing the cache.
- * CacheSize is an integer that represents the total number of words
- * in the cache.  BlockSize is an integer that represents the total
- * number of words in a block.  Associativity is an integer that
- * represents the associativity of the cache.  WriteHit and WriteMiss
- * represent the write hit and write miss options to be implemented by
- * this cache.
- *)
-
-signature CACHESPEC
-  = sig
-
-      datatype WriteHitOption = Write_Through
-                              | Write_Back;
-
-      datatype WriteMissOption = Write_Allocate
-                               | Write_No_Allocate;
-
-      val CacheName : string;
-      val CacheSize : int;
-      val BlockSize : int;
-      val Associativity : int;
-      val WriteHit : WriteHitOption;
-      val WriteMiss : WriteMissOption;
-
-    end
-
-
 (*****************************************************************************)
 
 (*
@@ -524,8 +479,8 @@ signature CACHESPEC
  * rounded down to the aligned address.
  *)
 
-functor CachedMemory (structure CS : CACHESPEC;
-		      structure MEM : MEMORY;) : MEMORY
+functor CachedMemory (structure CS : CACHESPEC
+		      structure MEM : MEMORY) : MEMORY
   = struct
 
       type cacheline
@@ -1120,26 +1075,7 @@ functor CachedMemory (structure CS : CACHESPEC;
 	      (MEM.GetStatistics mem)
 	    end;
 
-    end;
-
-(*****************************************************************************)
-
-(*
- * DLXSimulator.sig
- *
- * This defines the exported function provided by the DLXSimulator.
- * The function run_file takes a string corresponding to the name of the
- * file to be run, and executes it.  The function run_prog takes a
- * list of instructions and executes them.
- *)
-
-signature DLXSIMULATOR
-  = sig
-
-      val run_file : string -> int list -> unit
-      val run_prog : string list -> int list -> unit
-
-    end;
+    end
 
 (*****************************************************************************)
 
@@ -1154,9 +1090,9 @@ signature DLXSIMULATOR
  * run_prog takes a list of instructions and executes them.
  *)
 
-functor DLXSimulatorFun (structure RF : REGISTERFILE;
-			 structure ALU : ALU;
-			 structure MEM : MEMORY; ) : DLXSIMULATOR
+functor DLXSimulatorFun (structure RF : REGISTERFILE
+			 structure ALU : ALU
+			 structure MEM : MEMORY) : DLXSIMULATOR
   = struct
 
       (*
@@ -1412,151 +1348,151 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
        * instructions.  A number of the instructions make use of the
        * ALU, and as such, call ALU.PerformAL.
        *)
-      fun PerformIType ((BEQZ, rs1, rd, immediate), (PC, rf, mem))
+      fun PerformIType ((BEQZ, rs1, rd, immediate), PC, rf, mem)
 	= if (RF.LoadRegister(rf, rs1) = (0wx00000000 : Word32.word))
-	    then (Word32.fromInt (Int.+ (Word32.toIntX PC,
+	    then CycleLoop (Word32.fromInt (Int.+ (Word32.toIntX PC,
 						Word32.toIntX
 						(Word32.<< (immediate,
 							    0wx0002)))),
 		  rf, mem)
-	    else (PC, rf, mem)
+	    else CycleLoop (PC, rf, mem)
 
-	| PerformIType ((BNEZ, rs1, rd, immediate), (PC, rf, mem))
+	| PerformIType ((BNEZ, rs1, rd, immediate), PC, rf, mem)
 	  = if not (RF.LoadRegister(rf, rs1) = (0wx00000000 : Word32.word))
-	      then (Word32.fromInt (Int.+ (Word32.toIntX PC,
+	      then CycleLoop (Word32.fromInt (Int.+ (Word32.toIntX PC,
 						  Word32.toIntX
 						  (Word32.<< (immediate,
 							      0wx0002)))),
 		    rf, mem)
-	      else (PC, rf, mem)
+	      else CycleLoop (PC, rf, mem)
 
-	| PerformIType ((ADDI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((ADDI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.ADD,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((ADDUI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((ADDUI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.ADDU,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SUBI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SUBI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SUB,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SUBUI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SUBUI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SUBU,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((ANDI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((ANDI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.AND,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((ORI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((ORI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.OR,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((XORI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((XORI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.XOR,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((LHI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC, RF.StoreRegister(rf, rd, Word32.<< (immediate, 0wx0010)), mem)
+	| PerformIType ((LHI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC, RF.StoreRegister(rf, rd, Word32.<< (immediate, 0wx0010)), mem)
 
-	| PerformIType ((SLLI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC, RF.StoreRegister(rf, rd,
+	| PerformIType ((SLLI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC, RF.StoreRegister(rf, rd,
 				  Word32.<< (RF.LoadRegister(rf, rs1),
 					     Word.fromLargeWord (Word32.toLargeWord immediate))),
 	     mem)
 
-	| PerformIType ((SRLI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC, RF.StoreRegister(rf, rd,
+	| PerformIType ((SRLI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC, RF.StoreRegister(rf, rd,
 				  Word32.>> (RF.LoadRegister(rf, rs1),
 					     Word.fromLargeWord (Word32.toLargeWord immediate))),
 	     mem)
 
-	| PerformIType ((SRAI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC, RF.StoreRegister(rf, rd,
+	| PerformIType ((SRAI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC, RF.StoreRegister(rf, rd,
 				  Word32.~>> (RF.LoadRegister(rf, rs1),
 					      Word.fromLargeWord (Word32.toLargeWord immediate))),
 	     mem)
 
-	| PerformIType ((SEQI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SEQI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SEQ,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SNEI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SNEI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SNE,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SLTI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SLTI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SLT,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SGTI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SGTI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SGT,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SLEI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SLEI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SLE,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((SGEI, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SGEI, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SGE,
 					    RF.LoadRegister(rf, rs1),
 					    immediate)),
 	     mem)
 
-	| PerformIType ((LB, rs1, rd, immediate), (PC, rf, mem))
-	  = let
+	| PerformIType ((LB, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop let
 	      val (nmem, l_byte)
 		  = MEM.LoadByte(mem, Word32.+ (RF.LoadRegister(rf, rs1),
 						immediate));
@@ -1566,8 +1502,8 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       nmem)
 	    end
 
-	| PerformIType ((LBU, rs1, rd, immediate), (PC, rf, mem))
-	  = let
+	| PerformIType ((LBU, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop let
 	      val (nmem, l_byte)
 		  = MEM.LoadByteU(mem, Word32.+ (RF.LoadRegister(rf, rs1),
 						 immediate));
@@ -1577,15 +1513,15 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       nmem)
 	    end
 
-	| PerformIType ((SB, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SB, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     rf,
 	     MEM.StoreByte(mem,
 			   Word32.+ (RF.LoadRegister(rf, rs1), immediate),
 			   Word32.andb(0wx000000FF, RF.LoadRegister(rf, rd))))
 
-	| PerformIType ((LH, rs1, rd, immediate), (PC, rf, mem))
-	  = let
+	| PerformIType ((LH, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop let
 	      val (nmem, l_hword)
 		  = MEM.LoadHWord(mem, Word32.+ (RF.LoadRegister(rf, rs1),
 						 immediate));
@@ -1595,8 +1531,8 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       nmem)
 	    end
 
-	| PerformIType ((LHU, rs1, rd, immediate), (PC, rf, mem))
-	  = let
+	| PerformIType ((LHU, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop let
 	      val (nmem, l_hword)
 		  = MEM.LoadHWordU(mem, Word32.+ (RF.LoadRegister(rf, rs1),
 						  immediate));
@@ -1606,16 +1542,16 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       nmem)
 	    end
 
-	| PerformIType ((SH, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SH, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     rf,
 	     MEM.StoreByte(mem,
 			   Word32.+ (RF.LoadRegister(rf, rs1), immediate),
 			   Word32.andb(0wx0000FFFF, RF.LoadRegister(rf, rd))))
 
 
-	| PerformIType ((LW, rs1, rd, immediate), (PC, rf, mem))
-	  = let
+	| PerformIType ((LW, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop let
 	      val (nmem, l_word)
 		  = MEM.LoadWord(mem, Word32.+ (RF.LoadRegister(rf, rs1),
 						immediate));
@@ -1625,16 +1561,16 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       nmem)
 	    end
 
-	| PerformIType ((SW, rs1, rd, immediate), (PC, rf, mem))
-	  = (PC,
+	| PerformIType ((SW, rs1, rd, immediate), PC, rf, mem)
+	  = CycleLoop (PC,
 	     rf,
 	     MEM.StoreWord(mem,
 			   Word32.+ (RF.LoadRegister(rf, rs1), immediate),
 			   RF.LoadRegister(rf, rd)))
 
-	| PerformIType ((_, rs1, rd, immediate), (PC, rf, mem))
+	| PerformIType ((_, rs1, rd, immediate), PC, rf, mem)
 	  = (print "Error : Non I-Type opcode, performing NOP\n";
-	     (PC, rf, mem));
+	     CycleLoop (PC, rf, mem))
 
 
       (*
@@ -1642,169 +1578,168 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
        * instructions.  All of the instructions make use of the
        * ALU, and as such, call ALU.PerformAL.
        *)
-      fun PerformRType ((SPECIA, rs1, rs2, rd, shamt, NOP), (PC, rf, mem))
-	  = (PC, rf, mem)
+      and PerformRType ((SPECIA, rs1, rs2, rd, shamt, NOP), PC, rf, mem)
+	  = CycleLoop (PC, rf, mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLL), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLL), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SLL,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SRL), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SRL), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SRL,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SRA), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SRA), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SRA,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, ADD), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, ADD), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.ADD,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, ADDU), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, ADDU), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.ADDU,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SUB), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SUB), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SUB,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SUBU), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SUBU), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SUBU,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, AND), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, AND), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.AND,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, OR), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, OR), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.OR,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, XOR), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, XOR), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.XOR,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SEQ), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SEQ), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SEQ,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SNE), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SNE), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SNE,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLT), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLT), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SLT,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SGT), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SGT), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SGT,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLE), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SLE), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SLE,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SGE), (PC, rf, mem))
-	  = (PC,
+	| PerformRType ((SPECIAL, rs1, rs2, rd, shamt, SGE), PC, rf, mem)
+	  = CycleLoop (PC,
 	     RF.StoreRegister(rf, rd,
 			      ALU.PerformAL(ALU.SGE,
 					    RF.LoadRegister(rf, rs1),
 					    RF.LoadRegister(rf, rs2))),
 	     mem)
 
-	| PerformRType ((_, rs1, rs2, rd, shamt, _), (PC, rf, mem))
+	| PerformRType ((_, rs1, rs2, rd, shamt, _), PC, rf, mem)
 	  = (print "Error : Non R-Type opcode, performing NOP\n";
-	     (PC, rf, mem));
-
+	     CycleLoop (PC, rf, mem))
 
       (*
        * The function PerformJType performs one of the J-Type
        * instructions.
        *)
-      fun PerformJType ((J, offset), (PC, rf, mem))
-	  = (Word32.fromInt (Int.+ (Word32.toIntX PC,
+      and PerformJType ((J, offset), PC, rf, mem)
+	  = CycleLoop (Word32.fromInt (Int.+ (Word32.toIntX PC,
 					   Word32.toIntX
 					   (Word32.<< (offset, 0wx0002)))),
 	     rf, mem)
 
-	| PerformJType ((JR, offset), (PC, rf, mem))
-	  = (RF.LoadRegister(rf,
+	| PerformJType ((JR, offset), PC, rf, mem)
+	  = CycleLoop (RF.LoadRegister(rf,
 			     Word32.toInt(Word32.andb (Word32.>> (offset,
 								  0wx0015),
 						       0wx0000001F :
 						       Word32.word))),
 	     rf, mem)
 
-	| PerformJType ((JAL, offset), (PC, rf, mem))
-	  = (Word32.fromInt (Int.+ (Word32.toIntX PC,
+	| PerformJType ((JAL, offset), PC, rf, mem)
+	  = CycleLoop (Word32.fromInt (Int.+ (Word32.toIntX PC,
 					   Word32.toIntX
 					   (Word32.<< (offset, 0wx0002)))),
 	     RF.StoreRegister(rf, 31, PC),
 	     mem)
 
-	| PerformJType ((JALR, offset), (PC, rf, mem))
-	  = (RF.LoadRegister(rf,
+	| PerformJType ((JALR, offset), PC, rf, mem)
+	  = CycleLoop (RF.LoadRegister(rf,
 			     Word32.toInt (Word32.andb (Word32.>> (offset,
 								   0wx0015),
 							0wx0000001F :
@@ -1812,21 +1747,21 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	     RF.StoreRegister(rf, 31, PC),
 	     mem)
 
-	| PerformJType ((TRAP, 0wx00000003 : Word32.word), (PC, rf, mem))
-	  = let
+	| PerformJType ((TRAP, 0wx00000003 : Word32.word), PC, rf, mem)
+	  = CycleLoop let
 	      val input =
                   case inputsGet1 () of
                       SOME i => i
                     | NONE => (TextIO.print "Error : Returning 0\n";
 			       Int.fromInt 0);
-	    in
+	    in 
 	      (PC,
 	       RF.StoreRegister(rf, 14, Word32.fromInt input),
 	       mem)
 	    end
 
-	| PerformJType ((TRAP, 0wx00000004 : Word32.word), (PC, rf, mem))
-	  = let
+	| PerformJType ((TRAP, 0wx00000004 : Word32.word), PC, rf, mem)
+	  = CycleLoop let
 	      val output =  Int.toString (Word32.toIntX
 					       (RF.LoadRegister(rf, 14)));
 
@@ -1835,27 +1770,27 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 	       (PC, rf, mem))
 	    end
 
-	| PerformJType ((_, offset), (PC, rf, mem))
+	| PerformJType ((_, offset), PC, rf, mem)
 	  = (print "Error : Non J-Type opcode, performing NOP\n";
-	     (PC, rf, mem));
+	     CycleLoop (PC, rf, mem))
 
 
       (*
        * The function PerformInstr performs an instruction by
        * passing the instruction to the appropriate auxiliary function.
        *)
-      fun PerformInstr (ITYPE instr, (PC, rf, mem))
-	  = PerformIType (instr, (PC, rf, mem))
-	| PerformInstr (RTYPE instr, (PC, rf, mem))
-	  = PerformRType (instr, (PC, rf, mem))
-	| PerformInstr (JTYPE instr, (PC, rf, mem))
-	  = PerformJType (instr, (PC, rf, mem))
-	| PerformInstr (ILLEGAL, (PC, rf, mem))
-	  = (PC, rf, mem);
+      and PerformInstr (ITYPE instr, PC, rf, mem)
+	  = PerformIType (instr, PC, rf, mem)
+	| PerformInstr (RTYPE instr, PC, rf, mem)
+	  = PerformRType (instr, PC, rf, mem)
+	| PerformInstr (JTYPE instr, PC, rf, mem)
+	  = PerformJType (instr, PC, rf, mem)
+	| PerformInstr (ILLEGAL, PC, rf, mem)
+	  = CycleLoop  (PC, rf, mem)
 
 
       (*
-       * The function CycleLoop represents the basic clock cylce of
+       * The function CycleLoop represents the basic clock cycle of
        * the DLX processor.  It takes as input the current program
        * counter, the current register file, and the current memory.
        * It loads, decodes, and executes an instruction and increments
@@ -1864,7 +1799,7 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
        * CycleLoop is recursively called with the result of performing
        * the instruction.
        *)
-      fun CycleLoop (PC, rf, mem)
+      and CycleLoop (PC, rf, mem)
 	  = let
 	      val (nmem, instr_word) = MEM.LoadWord (mem, PC);
 	      val instr = DecodeInstr instr_word;
@@ -1874,7 +1809,7 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
 		then (print "Program halted.\n";
 		      print (MEM.GetStatistics (nmem));
 		      ())
-	        else CycleLoop (PerformInstr (instr, (nPC, rf, nmem)))
+	        else PerformInstr (instr, nPC, rf, nmem)
 	    end
 
 
@@ -1932,7 +1867,8 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
             ; CycleLoop (0wx00010000 : Word32.word,
 		         RF.InitRegisterFile (),
 		         LoadProg (instructions, MEM.InitMemory ()))
-            )
+            ; ()
+	    )
 
       (*
        * The function run_file is exported by DLXSimulator.
@@ -1947,180 +1883,6 @@ functor DLXSimulatorFun (structure RF : REGISTERFILE;
     end
 
 local
-
-structure ImmArray2 : IMMARRAY2
-  = struct
-
-      (* datatype 'a immarray2
-       * An immarray2 is stored internally as an immutable array
-       * of immutable arrays.  The use of a contructor prevents ImmArray
-       * functions from treating the immarray2 type as an immarray.
-      *)
-      datatype 'a immarray2 = IA2 of 'a ImmArray.immarray ImmArray.immarray;
-      datatype traversal = RowMajor | ColMajor
-
-      (* val tabulate : traversal -> int * int * (int * int -> 'a)
-       *                -> 'a immarray2
-       * val immarray2 : int * int * 'a -> 'a immarray2
-       * val fromList : 'a list list -> 'a immarray2
-       * val dmensions : 'a immarray2 -> int * int
-       * These functions perform basic immarray2 functions.
-       * The tabulate and immarray2 functions create an immarray2.
-       * The fromList function converts a list of lists into an immarray2.
-       * Unlike Array2.fromList, fromList will accept lists of different
-       * lengths, allowing one to create an immarray2 in which the
-       * rows have different numbers of columns, although it is likely that
-       * exceptions will be raised when other ImmArray2 functions are applied
-       * to such an immarray2.  Note that dimensions will return the
-       * number of columns in row 0.
-       * The dimensions function returns the dimensions of an immarray2.
-       *)
-      fun tabulate RowMajor (r, c, initfn)
-	= let
-	    fun initrow r = ImmArray.tabulate (c, fn ic => initfn (r,ic));
-	  in
-	    IA2 (ImmArray.tabulate (r, fn ir => initrow ir))
-	  end
-	| tabulate ColMajor (r, c, initfn)
-	  = turn (tabulate RowMajor (c,r, fn (c,r) => initfn(r,c)))
-      and immarray2 (r, c, init) = tabulate RowMajor (r, c, fn (_, _) => init)
-      and fromList l
-	= IA2 (ImmArray.tabulate (length l,
-				  fn ir => ImmArray.fromList (List.nth(l,ir))))
-      and dimensions (IA2 ia2) = (ImmArray.length ia2,
-				  ImmArray.length (ImmArray.sub (ia2, 0)))
-
-      (* turn : 'a immarray2 -> 'a immarray2
-       * This function reverses the rows and columns of an immarray2
-       * to allow handling of ColMajor traversals.
-       *)
-      and turn ia2 = let
-		       val (r,c) = dimensions ia2;
-		     in
-		       tabulate RowMajor (c,r,fn (cc,rr) => sub (ia2,rr,cc))
-		     end
-
-      (* val sub : 'a immarray2 * int * int -> 'a
-       * val update : 'a immarray2 * int * int * 'a -> 'a immarray2
-       * These functions sub and update an immarray2 by indices.
-       *)
-      and sub (IA2 ia2, r, c) = ImmArray.sub(ImmArray.sub (ia2, r), c);
-      fun update (IA2 ia2, r, c, x)
-	  = IA2 (ImmArray.update (ia2, r,
-				  ImmArray.update (ImmArray.sub (ia2, r),
-						   c, x)));
-
-      (* val extract : 'a immarray2 * int * int *
-       *               int option * int option -> 'a immarray2
-       * This function extracts a subarray from an immarray2 from
-       * one pair of indices either through the rest of the
-       * immarray2 (NONE, NONE) or for the specfied number of elements.
-       *)
-      fun extract (IA2 ia2, i, j, rlen, clen)
-	  = IA2 (ImmArray.map (fn ia => ImmArray.extract (ia, j, clen))
-		              (ImmArray.extract (ia2, i, rlen)));
-
-      (* val nRows : 'a immarray2 -> int
-       * val nCols : 'a immarray2 -> int
-       * These functions return specific dimensions of an immarray2.
-       *)
-      fun nRows (IA2 ia2) = (#1 o dimensions) (IA2 ia2);
-      fun nCols (IA2 ia2) = (#2 o dimensions) (IA2 ia2);
-      (* val row : immarray2 * int -> ImmArray.immarray
-       * val column : immarray2 * int -> ImmArray.immarray
-       * These functions extract an entire row or column from
-       * an immarray2 by index, returning the row or column as
-       * an ImmArray.immarray.
-       *)
-      fun row (ia2, r) = let
-			   val (c, _) = dimensions ia2;
-			 in
-			   ImmArray.tabulate (c, fn i => sub (ia2, r, i))
-			 end;
-      fun column (ia2, c) = let
-			      val (_, r) = dimensions ia2;
-			    in
-			      ImmArray.tabulate (r, fn i => sub (ia2, i, c))
-			    end;
-
-      (* val appi : traversal -> ('a * int * int -> unit) -> 'a immarray2
-       *            -> unit
-       * val app : traversal -> ('a -> unit) -> 'a immarray2 -> unit
-       * These functions apply a function to every element
-       * of an immarray2.  The appi function also provides the
-       * indices of the element as an argument to the applied function
-       * and uses an immarray2 slice argument.
-       *)
-      fun appi RowMajor f (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.appi (fn (r,ia) => ImmArray.appi (fn (c,x) => f(r,c,x))
-			                            (ia, j, clen))
-	                (ia2, i, rlen)
-	| appi ColMajor f (ia2, i, j, rlen, clen)
-	= appi RowMajor (fn (c,r,x) => f(r,c,x)) (turn ia2, j, i, clen, rlen);
-      fun app tr f (IA2 ia2) = appi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
-
-      (* val foldli : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-       *              -> ('a immarray2 * int * int * int option * int option)
-       *              -> 'b
-       * val foldri : traversal -> ((int * int * 'a * 'b) -> 'b) -> 'b
-       *              -> ('a immarray2 * int * int * int option * int option)
-       *              -> 'b
-       * val foldl : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
-       * val foldr : traversal -> ('a * 'b -> 'b) -> 'b -> 'a immarray2 -> 'b
-       * These functions fold a function over every element
-       * of an immarray2.  The foldri and foldli functions also provide
-       * the index of the element as an argument to the folded function
-       * and uses an immarray2 slice argument.
-       *)
-      fun foldli RowMajor f b (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.foldli (fn (r,ia,b)
-			   => ImmArray.foldli (fn (c,x,b) => f(r,c,x,b))
-                                              b
-                                              (ia, j, clen))
-                          b
-                          (ia2, i, rlen)
-	| foldli ColMajor f b (ia2, i, j, rlen, clen)
-	= foldli RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
-                 (turn ia2, j, i, clen, rlen);
-      fun foldri RowMajor f b (IA2 ia2, i, j, rlen, clen)
-	= ImmArray.foldri (fn (r,ia,b)
-			   => ImmArray.foldri (fn (c,x,b) => f(r,c,x,b))
-                                              b
-                                              (ia, j, clen))
-                          b
-                          (ia2, i, rlen)
-	| foldri ColMajor f b (ia2, i, j, rlen, clen)
-	= foldri RowMajor (fn (c,r,x,b) => f(r,c,x,b)) b
-                          (turn ia2, j, i, clen, rlen);
-      fun foldl tr f b (IA2 ia2)
-	= foldli tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
-      fun foldr tr f b (IA2 ia2)
-	= foldri tr (fn (_,_,x,b) => f(x,b)) b (IA2 ia2, 0, 0, NONE, NONE);
-
-      (* val mapi : traversal -> ('a * int * int -> 'b) -> 'a immarray2
-       *            -> 'b immarray2
-       * val map : traversal -> ('a -> 'b) -> 'a immarray2 -> 'b immarray2
-       * These functions map a function over every element
-       * of an immarray2.  The mapi function also provides the
-       * indices of the element as an argument to the mapped function
-       * and uses an immarray2 slice argument.  Although there are
-       * similarities between mapi and modifyi, note that when mapi is
-       * used with an immarray2 slice, the resulting immarray2 is the
-       * same size as the slice.  This is necessary to preserve the
-       * type of the resulting immarray2.  Thus, mapi with the identity
-       * function reduces to the extract function.
-       *)
-      fun mapi RowMajor f (IA2 ia2, i, j, rlen, clen)
-	= IA2 (ImmArray.mapi (fn (r,ia) => ImmArray.mapi (fn (c,x) => f(r,c,x))
-			                                 (ia, j, clen))
-                             (ia2, i, rlen))
-	| mapi ColMajor f (ia2, i, j, rlen, clen)
-	= turn (mapi RowMajor (fn (c,r,x) => f(r,c,x))
-                     (turn ia2, j, i, clen, rlen))
-      fun map tr f (IA2 ia2)
-	= mapi tr (f o #3) (IA2 ia2, 0, 0, NONE, NONE);
-
-    end
 
 (*****************************************************************************)
 
@@ -2160,7 +1922,7 @@ structure RegisterFile : REGISTERFILE
 
       fun LoadRegister (rf, reg) = ImmArray.sub(rf, reg);
 
-      fun StoreRegister (rf, reg, data) = ImmArray.update(rf, reg, data);
+      fun StoreRegister (rf, reg, data) = if !(ref false) then rf else ImmArray.update(rf, reg, data)
 
     end
 

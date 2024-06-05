@@ -1,0 +1,22 @@
+local
+   prebackend0.mlb
+   open BasLib
+   open Compiler Tools
+   local 
+      open Pickle CompilerObjects 
+   in Backend/JS/jsast.mlb
+      Backend/JS/EXP_TO_JS.sig
+      Backend/JS/ExpToJs2.sml
+   end
+   local open CompilerObjects in Backend/JS/CompileJS.sml end
+   open Pickle Manager
+   Backend/JS/CompileBasisJS.sml
+   open Basics CompilerObjects 
+in Backend/JS/ExecutionJS.sml 
+   local $SML_LIB/basis/js.mlb
+   in Backend/JS/SmlToJsComp.sml
+      local $SML_LIB/appfun/appfun2.mlb
+      in Backend/JS/SmlToJsCompApp.sml
+      end
+   end
+end

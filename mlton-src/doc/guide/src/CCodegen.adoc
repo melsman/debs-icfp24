@@ -1,0 +1,14 @@
+= CCodegen
+
+The <<CCodegen#>> is a <<Codegen#,code generator>> that translates the
+<<Machine#>> <<IntermediateLanguage#>> to C, which is further optimized
+and compiled to native object code by `gcc` (or another C compiler).
+
+== Implementation
+
+* https://github.com/MLton/mlton/blob/master/mlton/codegen/c-codegen/c-codegen.sig[`c-codegen.sig`]
+* https://github.com/MLton/mlton/blob/master/mlton/codegen/c-codegen/c-codegen.fun[`c-codegen.fun`]
+
+== Details and Notes
+
+The <<CCodegen#>> is the original <<Codegen#,code generator>> for MLton.

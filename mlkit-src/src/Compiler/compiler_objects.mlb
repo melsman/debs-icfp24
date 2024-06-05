@@ -1,0 +1,47 @@
+local
+  basis BasLib = bas $(SML_LIB)/basis/basis.mlb end
+  basis Edlib = bas ../Edlib/edlib.mlb end
+  basis Pickle = bas ../Pickle/pickle.mlb end
+  basis Tools = bas ../Common/tools.mlb end
+  basis SyntaxObjects = bas ../Common/syntax_objects.mlb end
+  basis SpecialObjects = bas ../Common/special_objects.mlb end
+  basis Basics = bas ../Common/basics.mlb end
+  basis Md5 = bas ../Common/md5.mlb end
+  open BasLib
+in
+  local open Tools Pickle
+  in
+     Lambda/LVARS.sig
+     Lambda/CON.sig
+     Lambda/EXCON.sig
+     Regions/ADDRESS_LABELS.sml
+     local open SpecialObjects
+     in Lambda/Lvars.sml
+        Lambda/Con.sml
+        Lambda/Excon.sml
+        local open Md5 in Regions/AddressLabels.sml end
+     end
+  end
+
+  local open Pickle
+  in Lambda/COMPILER_ENV.sml
+     local open Tools
+     in Lambda/LAMBDA_EXP.sml
+        local open Tools SyntaxObjects SpecialObjects
+        in Lambda/LambdaExp.sml
+        end
+     end
+
+     Lambda/LAMBDA_BASICS.sml
+
+     local open Edlib Tools SpecialObjects SyntaxObjects
+     in Lambda/LambdaBasics.sml
+     end
+
+     local open Tools SyntaxObjects SpecialObjects Basics
+     in Lambda/CompilerEnv.sml
+     end
+  end
+
+  open SpecialObjects
+end

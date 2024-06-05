@@ -1,0 +1,5 @@
+## Ignore all .cm/ directories
+.cm/
+
+## Ignore all MLB/ directories
+MLB/

@@ -1,0 +1,8 @@
+## Ignore all *.a, *.d, and *.o files
+*.a
+*.d
+*.o
+
+/gdtoa/
+/c-types.h
+/ml-types.h

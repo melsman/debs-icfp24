@@ -1,0 +1,6 @@
+local 
+  $(SML_LIB)/basis/basis.mlb
+  $(SML_LIB)/basis/rwp.mlb
+in
+  rwp_ex1.sml
+end

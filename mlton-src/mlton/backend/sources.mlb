@@ -1,0 +1,84 @@
+(* Copyright (C) 2019-2021 Matthew Fluet.
+ * Copyright (C) 1999-2007 Henry Cejtin, Matthew Fluet, Suresh
+ *    Jagannathan, and Stephen Weeks.
+ * Copyright (C) 1997-2000 NEC Research Institute.
+ *
+ * MLton is released under a HPND-style license.
+ * See the file MLton-LICENSE for details.
+ *)
+
+local
+   ../../lib/mlton/sources.mlb
+   ../atoms/sources.mlb
+   ../control/sources.mlb
+   ../ssa/sources.mlb
+
+   runtime.sig
+   runtime.fun
+   objptr-tycon.sig
+   objptr-tycon.fun
+   object-type.sig
+   rep-type.sig
+   rep-type.fun
+
+   backend-atoms.sig
+   backend-atoms.fun
+
+   err.sml
+
+   object.sig
+   object.fun
+   switch.sig
+   switch.fun
+
+   rssa-tree.sig
+   rssa-tree.fun
+   rssa-type-check.sig
+   rssa-type-check.fun
+   rssa-shrink.sig
+   rssa-shrink.fun
+   rssa-live.sig
+   rssa-live.fun
+   rssa-restore.sig
+   rssa-restore.fun
+
+   rssa-transform.sig
+   bounce-vars.fun
+   collect-statics.fun
+   implement-handlers.fun
+   implement-profiling.fun
+   insert-checks.fun
+   rssa-simplify.sig
+   rssa-simplify.fun
+   rssa.sig
+   rssa.fun
+
+   representation.sig
+   packed-representation.fun
+   ssa2-to-rssa.sig
+   ssa2-to-rssa.fun
+
+   machine.sig
+   machine.fun
+
+   allocate-variables.sig
+   allocate-variables.fun
+   equivalence-graph.sig
+   equivalence-graph.fun
+   chunkify.sig
+   chunkify.fun
+   parallel-move.sig
+   parallel-move.fun
+   backend.sig
+   backend.fun
+in
+   signature MACHINE
+   signature REP_TYPE
+   signature RUNTIME
+
+   functor Backend
+   functor BackendAtoms
+   functor Machine
+   functor Rssa
+   functor Ssa2ToRssa
+end

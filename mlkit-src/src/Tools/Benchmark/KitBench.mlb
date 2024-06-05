@@ -1,0 +1,13 @@
+local
+  $(SML_LIB)/basis/basis.mlb
+  ../Tester/info.mlb
+  ../Tester/TestFile.sml
+  MemTime.sml
+  COMPILE.sml
+  CompileSMLNJ.sml
+  (* CompileSMLNJ-110.40.sml *)
+  CompileMLKIT.sml
+  CompileMLTON.sml
+in
+  Benchmark.sml
+end

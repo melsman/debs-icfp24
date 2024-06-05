@@ -6,4 +6,4 @@ all:
 clean:
 	$(MAKE) -C src clean
 	find lib -name 'MLB' | xargs rm -rf
-	rm -rf *~
+	rm -rf *~ */*~ */.gitignore~

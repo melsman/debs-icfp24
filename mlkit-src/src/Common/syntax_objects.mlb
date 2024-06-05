@@ -1,0 +1,27 @@
+local
+  basis BasLib = bas $(SML_LIB)/basis/basis.mlb end
+  basis Pickle = bas ../Pickle/pickle.mlb end
+  basis Tools = bas tools.mlb end
+  open BasLib
+in
+  local open Pickle Tools
+  in STRID.sig
+     IDENT.sig
+     SIGID.sig
+     FUNID.sig
+     LAB.sig
+     TYCON.sig
+     SYNTAX_TYVAR.sig
+     REGVAR.sig
+     StrId.sml
+     Ident.sml
+     SigId.sml
+     FunId.sml
+     Lab.sml
+     TyCon.sml
+     SyntaxTyVar.sml
+     RegVar.sml
+  end
+  SCON.sig
+  SCon.sml
+end

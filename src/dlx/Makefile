@@ -5,4 +5,4 @@ dlx.exe: dlx.mlb
 
 .PHONY: clean
 clean:
-	rm -rf MLB *~ *.exe run
+	rm -rf MLB *~ *.exe* run *.amd64-linux* dlx

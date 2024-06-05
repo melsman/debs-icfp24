@@ -317,6 +317,7 @@ local fun getLines (json_str:string) : line list =
             | "MLKIT [-cr]" => "rg-cr"
             | "MLKIT [-disable_spurious_type_variables -scratch]" => "rg-"
             | "MLKIT [-no_gc]" => "r"
+            | "MLKIT [-no_gc -aopt -cr]" => "r-cr"
             | "MLKIT [-no_ri]" => "g"
             | "MLKIT [-no_ri -gengc]" => "G"
             | "MLTON" => "mlton"

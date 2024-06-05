@@ -1,507 +1,305 @@
-# Artifact for the ICFP 2024 paper *Double-Ended Bit-Stealing for Algebraic Data Types*
+# ICFP 2024 Artifact
 
-This artifact aims at replicating the results reported in the paper Double-Ended
-Bit-Stealing for Algebraic Data Types.
+Name: Double-Ended Bit-Stealing for Algebraic Data Types
 
-## Getting Started
+## Artifact Instructions
 
-The artifact comprises a Docker image `debs-icfp24.tar.gz`.  Depending on your
-system, `docker` commands might or might not need to be prefixed with `sudo`.
-In the following we will leave off `sudo`, but you may have to add it yourself.
+This artifact aims at replicating the results reported in the ICFP
+2024 paper Double-Ended Bit-Stealing for Algebraic Data Types.
 
-You can load the Docker image into Docker with:
+The artifact comes in two versions, a file debs-icfp24.tgz containing
+the sources of the artifact (along with this README.md file) and a
+QEMU image containing the sources and with all dependencies
+installed. The QEMU image is set up to start with 12GB of RAM
+(modification in `start.sh`) and works best under an x86_64
+host architecture.
+
+The sources in the file debs-icfp24.tgz appear unpacked in the QEMU
+image in the folder /home/artifact/debs-icfp24. For detailed
+instructions on how to install QEMU and how to launch the QEMU image,
+please consult the section "QEMU Instructions" below.
+
+### Installed Dependencies
+
+The ICFP 2024 base QEMU image has been extended as follows:
+
+- Debian packages: cmake make libgmp-dev time automake build-essential 
+
+- Standard ML compilers: MLton 20210117 (installed in
+  /home/artifact/mlton), SML/NJ 110.99.4 (installed in
+  /home/artifact/smlnj), MLKit 4.7.11 (installed in
+  /home/artifact/mlkit).
+
+- The file /home/artifact/.profile has been augmented to extend the
+  PATH environment variable to include the paths to the binaries of
+  the above Standard ML compilers and tools.
+
+- The artifact file debs-icfp24.tgz has been unpacked in the folder
+  /home/artifact/debs-icfp24.
+
+### Getting Started
+
+We now assume that you have started the QEMU VM image as described
+below and have logged into the system using the command (password is
+`password`)
 
 ```
-$ docker load -i debs-icfp24.tar.gz
+$ ssh -p 5555 artifact@localhost
 ```
 
-You can then run the image with:
+This command will put you into a shell inside a directory containing
+the experimental infrastructure.  For compiling some infrastructure
+tools, execute the following commands:
 
 ```
-$ docker run -it debs-icfp24:latest
+$ cd /home/artifact/debs-icfp24
+$ make prepare
 ```
 
-or
+These commands should take less than a minute to run.
 
-```
-$ docker run --platform linux/amd64 -it debs-icfp24:latest
-```
+### List of Claims
 
-This command will put you into a shell inside a directory containing the
-experimental infrastructure.  Run `make all` to compile and run all unboxing
-demonstrations and benchmarks. Running `make all` should take less than a XXXX.
+The artifact establishes the following main claims mentioned in the
+paper:
 
-## Introduction
+1. The MLKit implementation of double-ended bit-stealing makes
+   unboxing decisions as reported in the paper. These claims can be
+   established by compiling a series of examples in the
+   `debs-icfp24/demo` folder:
 
-This artifact includes (1) a tutorial demonstrating unboxing in the MLKit (and
-in particular unboxing through double-ended bit-stealing) as described in the
-ICFP 2024 paper "Double-Ended Bit-Stealing for Algebraic Data Types", (2) code
-for reproducing the benchmark results reported in the paper, and (3) the source
-code for MLKit, including a description of the implementation of double-ended
-bit-stealing.
+   ```
+   $ cd /home/artifact/debs-icfp24/demo
+   $ make clean && make all
+   ```
 
-Double-ended bit-stealing for algebraic data types is implemented in the MLKit
-compiler, a compiler for the programming language Standard ML. Source files are
-given to the MLKit compiler (i.e., the `mlkit` executable) either as a single
-source file or as an mlb-file describing a directed acyclic graph (DAG) of
-source code files. The MLKit compiler also accepts a series of flags, which can
-be printed using `mlkit --help`:
+   The commands will report on the unboxing decisions for the examples
+   `exp`, `single`, `patricia`, `uf`, `stream`, and `opt` (also the
+   expected unboxing decisions are shown) and will take less than a
+   minute to execute.
+
+   As a side note, source files are given to the MLKit compiler (i.e.,
+   the `mlkit` executable) either as a single source file or as an
+   mlb-file describing a directed acyclic graph (DAG) of source code
+   files. The MLKit compiler also accepts a series of flags, which can
+   be printed using `mlkit --help`:
 
     $ mlkit --version
     ....
 
-For the sake of the tutorial, a pre-installed `demo` folder is
-present in the `debs-icfp24` directory:
+2. The effect of double-ended bit-stealing, as implemented in the
+   MLKit compiler, is close to that reported in Figure 8 (running
+   times) and Figure 9 (memory usage) of the paper. To generate
+   textual formats of the two figures, execute the following commands
+   (running the benchmarks should take less than an hour):
+   
+   ```
+   $ cd /home/artifact/debs-icfp24/src
+   $ make clean && make all
+   $ make minitpress
+   $ make minimpress
+   ```
 
-    $ cd demo
+   For Figure 8 (`make minitpress`), the column `MLKit` corresponds to
+   `real # rg-cr`, the column `MLKit^dagger` corresponds to `real #
+   rg-nhpt-cr`, and `MLKit^R` corresponds to `real # r-cr`. Notice, in
+   particular, time improvements (`real # rg-cr` compared to `real #
+   rg-nhpt-cr`) for the benchmarks `calc`, `logic`, `patricia`, and
+   `uf`.
 
-The `demo` directory contains a series of tests that demonstrate the unboxing
-decisions taken by the MLKit compiler.
+   For Figure 9 (`make minimpress`), again, the column `MLKit`
+   corresponds to `real # rg-cr`, the column `MLKit^dagger`
+   corresponds to `real # rg-nhpt-cr`, and `MLKit^R` corresponds to
+   `real # r-cr`. In general, for all benchmarks, memory usage
+   (maximum resident set size) for the `real # rg-cr` column should
+   not exceed memory usage for the `real # rg-nhpt-cr` column.
 
-## List of Claims
+3. Double-ended bit-stealing as implemented in the MLKit compiler has
+   a positive effect on the execution time for compiling the MLKit
+   itself and the MLton compiler, as reported in Figure 10 of the
+   paper. A textual format of Figure 10 can be generated with the
+   following commands, which may take several hours to execute:
 
-The artifact establishes the following main claims mentioned in the paper:
+   ```
+   $ cd /home/artifact/debs-icfp24/boot
+   $ make all
+   $ make times_report
+   ```
 
-1. ReML has been implemented and syntactic constructs are available on
-   top of Standard ML syntax to control the underlying region
-   inference process (Introduction and Section 4.)
+   The commands compile MLKit and MLton several times,
+   respectively. In the textual figure generated with `make
+   times_report`, the columns MLKitNew corresponds to MLKit in Figure
+   10 and MLKitOld corresponds to MLKit^dagger in Figure 10.
+   
+   The generated table should show improvements for both running time
+   and memory usage, both with respect to compiling MLKit and with
+   respect to compiling MLton.
+   
+4. Boxities reported when compiling the MLKit sources and the MLton
+   sources are (precisely) as reported in Figure 11. A textual format
+   of the figure can be generated with the following command, provided
+   step 3 has been executed:
 
-2. A few larger ReML examples demonstrate how ReML can be used to
-   reason about effects and in particular about the lack of allocation
-   races (Mergesort, ray tracing, Mandelbrot).
+   ```
+   $ cd /home/artifact/debs-icfp24/boot
+   $ make boxity_report
+   ```
 
+## QEMU Instructions
 
-## Tutorial
+The ICFP 2024 Artifact Evaluation Process is using a Debian QEMU image
+as a base for artifacts. The Artifact Evaluation Committee (AEC) will
+verify that this image works on their own machines before distributing
+it to authors.  Authors are encouraged to extend the provided image
+instead of creating their own. If it is not practical for authors to
+use the provided image then please contact the AEC co-chairs before
+submission.
 
-The following subsections describe the basic ReML tests, the ReML
-parallel library, parallel Mergesort, parallel Mandelbrot, and a
-parallel ray-tracer. All tests and examples can be executed (and the
-output tested) by running `make all` from within the `reml-demo`
-folder.
+QEMU is a hosted virtual machine monitor that can emulate a host
+processor via dynamic binary translation. On common host platforms
+QEMU can also use a host provided virtualization layer, which is
+faster than dynamic binary translation.
 
-### Running the ReML Tests
+QEMU homepage: https://www.qemu.org/
 
-An overview of many of the basic ReML tests can be generated by
-writing
+### Installation
 
-```
-$ make tests.txt
-```
+#### OSX
+``brew install qemu``
 
-This command generates a file `tests.txt` with descriptions and
-expected output of ReML behavior. The behavior is checked by running
-`make test` in the `reml-demo` folder. Many of the aspects of ReML
-described in Section 4 of the paper is reflected in these tests,
-including `err_copylist.sml`.
+#### Debian and Ubuntu Linux
+``apt-get install qemu-kvm``
 
-Here is a snippet including a few lines of the generated `tests.txt`
-file:
+On x86 laptops and server machines you may need to enable the "Intel
+Virtualization Technology" setting in your BIOS, as some manufacturers
+leave this disabled by default. See Debugging.md for details.
 
-```
-(*** SOURCE err_copylist.sml ***)
-     1	(* Exomorphisms by non-unifiable explicit region variables *)
-     2
-     3	infix ::
-     4
-     5	fun copy `[r1 r2] (xs : int list`r1) : int list`r2 =
-     6	   case xs of
-     7	      nil => nil
-     8	    | x :: xs => x :: xs   (* copy forgotten *)
+#### Arch Linux
+``pacman -Sy qemu``
 
-(*** COMPILE FAILURE - COMPILER OUTPUT ***)
-     [reading source file:	err_copylist.sml]
-     > infix 0 ::
-       val copy : int list`r1->int list`r2
-     err_copylist.sml, line 5, column 9:
-       fun copy `[r1 r2] (xs : int list`r1) : int list`r2 =
-                ^^^^^^^^
-     Cannot unify the explicit region variables `r1 and `r2
-```
+See the [Arch wiki](https://wiki.archlinux.org/title/QEMU) for more
+info.
 
-And here is another snippet:
+See Debugging.md if you have problems logging into the artifact via
+SSH.
 
-```
-(*** SOURCE er4.sml ***)
-     1
-     2	(* It is an error to refer to a region name that is not in scope *)
-     3
-     4	fun f () =
-     5	  let val a = 3.2`r
-     6	      with r2
-     7	  in #1 (4,3.2`r2,a)
-     8	  end
+#### Windows 10
 
-(*** COMPILE FAILURE - COMPILER OUTPUT ***)
-     [reading source file:	er4.sml]
-     > val f : unit->int
-     er4.sml, line 5, column 17:
-         let val a = 3.2`r
-                        ^^
-     Explicit region variable `r is not in scope.
-```
+Download and install QEMU via the links at
 
-There is also an example demonstrating local mutable updates:
+https://www.qemu.org/download/#windows.
 
-```
-(*** SOURCE nomut-ok.sml ***)
-     1	local
-     2	  fun print (s:string) : unit = prim("printStringML", s)
-     3	  fun !(x: 'a ref): 'a = prim ("!", x)
-     4	  infix 3 :=
-     5	  fun (x: 'a ref) := (y: 'a): unit = prim (":=", (x, y))
-     6	  val r = ref "Hello\n"
-     7	in
-     8	fun f() =
-     9	    ( print (!r)
-    10	    ; r := "Hello again\n"
-    11	    ; print (!r)
-    12	    )
-    13
-    14	val rec g `e : (unit #e -> unit) while nomut e =
-    15	 fn ()  =>
-    16	    let val r2 = ref "hi"
-    17	    in r2 := "hi there\n"
-    18	     ; print (!r2)
-    19	    end
-    20
-    21	val () = f()
-    22	val () = g()
-    23	end
+Ensure that `qemu-system-x86_64.exe` is in your path.
 
-(*** COMPILE SUCCESS - EXECUTION OUTPUT ***)
-     Hello
-     Hello again
-     hi there
-```
+Start Bar -> Search -> "Windows Features"
+          -> enable "Hyper-V" and "Windows Hypervisor Platform".
 
-We see that ReML has determined that the function `g` has no external
-mutable effects.
+Restart your computer.
 
-In general, the generated file `tests.txt` may be a good reference to
-understand some of the basic syntactic parts of ReML.
+#### Windows 8
 
-It is straightforward to compile and run a ReML program in
-isolation. For instance, to attempt to compile the program
-`err_copylist.sml` in the `reml-demo` folder, execute the following
-command:
+See Debugging.md for Windows 8 install instructions.
+
+### Startup
+
+The artifact provides a `start.sh` script to start the VM on unix-like
+systems and `start.bat` for Windows. Running this script will open a
+graphical console on the host machine, and create a virtualized
+network interface.  On Linux you may need to run with `sudo` to start
+the VM. If the VM does not start then check `Debugging.md`
+
+Once the VM has started you can login to the guest system from the
+host.  Whenever you are asked for a password, the answer is
+`password`. The default username is `artifact`.
 
 ```
-   $ reml err_copylist.sml
-   [reading source file:	err_copylist.sml]
-   err_copylist.sml, line 5, column 9:
-	 fun copy `[r1 r2] (xs : int list`r1) : int list`r2 =
-			  ^^^^^^^^
-   Cannot unify the explicit region variables `r1 and `r2
-   Stopping compilation of MLB-file due to error (code 1).
+$ ssh -p 5555 artifact@localhost
 ```
 
-On the other hand, compiling the program `funty1.sml` generates an
-executable file `run`:
+You can also copy files to and from the host using scp.
 
 ```
-   $ reml funty1.sml
-   ...
-   $ ./run
-   Num: 11
+$ scp -P 5555 artifact@localhost:somefile .
 ```
 
-### The ReML Parallel Library
+### Shutdown
 
-ReML comes with basic thread libraries `reml-basis/Thread-reml.sml` and
-`reml-basis/ForkJoin-reml.sml`, which implement the signatures
-```
-signature THREAD = sig
-  type 'a t
-  val spawn    : (unit->'a) -> ('a t->'b) -> 'b
-  val get      : 'a t -> 'a
-  val numCores : unit -> int
-end
-
-signature FORK_JOIN = sig
-  val par    : (unit -> 'a) * (unit -> 'b) -> 'a * 'b
-  val pair   : ('a -> 'c) * ('b -> 'd) -> 'a * 'b -> 'c * 'd
-  val parfor : int -> int * int -> (int -> unit) -> unit
-  val pmap   : ('a -> 'b) -> 'a list -> 'b list
-
-  val alloc  : int -> 'a -> 'a array
-
-  type gcs = int * int (* max parallelism, min sequential work *)
-  val parfor' : gcs -> int * int -> (int -> unit) -> unit
-end
-```
-
-ReML does not currently reflect ReML region- and effect-constraints
-and annotations at the signature level, thus, we need to look into the
-implementation files `basis/Thread-reml.sml` and
-`basis/ForkJoin-reml.sml` to find the explicit region- and
-effect-annotated versions of the definitions:
+To shutdown the guest system cleanly, login to it via ssh and use
 
 ```
-signature THREAD = sig
-  type 'a t
-  val spawn `[e1 e2] : (unit #e1 ->'a) -> ('a t #e2 -> 'b) -> 'b while e1 ## e2
-  val get            : 'a t -> 'a
-  val numCores       : unit -> int
-end
-
-signature FORK_JOIN = sig
-  val par  `[e1 e2] : (unit #e1 -> 'a) * (unit #e2 -> 'b) -> 'a*'b while e1 ## e2
-  val pair `[e1 e2] : ('a #e1 -> 'b) * ('c #e2 -> 'd) -> 'a*'c -> 'b*'d while e1 ## e2
-  val parfor     `e : int -> int*int -> (int #e -> unit) -> unit while noput e
-  val pmap     `[e] : ('a #e ->'b) -> 'a list -> 'b list while noput e =
-
-  val alloc         : int -> 'a -> 'a array
-
-  type gcs = int * int (* max parallelism, min sequential work *)
-  val parfor'  `[e] : gcs -> int*int -> (int #e -> unit) -> unit while noput e
-end
+$ sudo shutdown now
 ```
 
-Whereas the `spawn` function is considered primitive in the sense that
-the constraint is there to provide guarantees about allocation races
-for the underlying implementation of `spawn`, all the functions in
-`ForkJoin-reml.sml` (`FORK_JOIN`) are implemented using `spawn` and
-the ReML constraint system is capable of discharging these constraints
-based on the constraint type provided for `spawn`.
+### Debugging
 
-### Parallel Mergesort
+See Debugging.md for advice on resolving potential problems.
 
-A parallel version of Mergesort similar to the version shown in the
-paper is implemented in `reml-demo/pmsort/pmsort.sml` (the implemented
-version uses an accumulating version of `merge`, which avoids troubles
-with lack of stack space). The example uses the `ForkJoin.par`
-function until the available parallelism is exhausted at which point
-in reverts into a sequential Mergesort. Here is how to run the example:
-
-```
-$ cd reml-demo/pmsort
-$ make all pmsort.exe
-$ ./pmsort.exe -P 1
-```
-
-ReML finds out that local regions are used for storing the results of
-the local sort results and is able to discharge the proof obligation
-of the `ForkJoin.par` function.
-
-A more interesting version uses array slices, which allows for
-parallelising also the `merge` function using a binary search. This
-version is available in `reml-demo/slmsort/slmsort.sml`:
-
-```
-$ cd reml-demo/slmsort
-$ make all slmsort.exe
-$ ./slmsort.exe -P 1
-```
-
-### Parallel Mandelbrot
-
-A parallel version of Mandelbrot is implemented in
-`reml-demo/mandelbrot/mandelbrot.sml`. It uses the `ForkJoin.parfor'`
-function to generate the pixels of the Mandelbrot set in
-parallel. Using the `parfor'` function it is possible to control both
-the grain size (`-G`), that is how much work an individual thread
-should do, and the number of used threads (`-P`) . To test the
-implementation, do as follows:
-
-```
-$ cd reml-demo/mandelbrot
-$ make all mandelbrot.exe
-$ ./mandelbrot.exe -P 12 -f pic.ppm
-$ convert pic.ppm pic.png         (convert not installed on image)
-```
-
-Notice that ReML checks that the function passed to `ForkJoin.parfor'`
-makes no global `put`-effects. The function can perfectly well make
-allocations in local regions. The `-P` parameter specifies the number
-of parallel Pthreads used.
-
-### Parallel Ray Tracing
-
-A parallel ray tracer is implemented in `reml-demo/ray/ray.sml`. It
-uses the `ForkJoin.parfor` function to generate the pixels of the
-Mandelbrot set in parallel. Using the `parfor` function it is possible
-to control only the grain size; the number of threads used is
-determined by the library. To test the implementation, do as follows:
-
-```
-$ cd reml-demo/ray
-$ make all ray.exe
-$ time ./ray.exe -G 10000 -f pic.ppm
-$ convert pic.ppm pic.png         (convert not installed on image)
-```
-
-Notice that ReML checks that the function passed to `ForkJoin.parfor`
-again makes no global `put`-effects. The function can perfectly well
-make allocations in local regions. The `-G` parameter specifies the
-work given to each thread. Playing with different values for `-G` is
-likely to have a influence on the time performance.
-
-For this example, it was necessary to arrange that pixel values are
-stored in a record of arrays instead of an array of records, which
-would lead to allocation races due to each thread allocating records
-for the pixels; an alternative would be to pack the channels into a
-single word (instead of using three words as is currently the case.)
-
-## Adding a new Example
-
-This artifact is not intended as an extensible framework, but it is
-not too onerous to add new example.
-
-Each of the larger examples resides in their own folder in the
-`reml-demo` directory and is represented by an `.mlb` file (and a
-`Makefile`) that mentions the source files of the example, and its
-dependencies.
-
-The easiest way to add a new example is to copy `reml-demo/mergesort`
-(for example), give it a new name (including the `.mlb` file), modify
-the `Makefile`, and add it to the parent folders' `Makefile`. Examples
-that compile successfully expects a file `file.mlb.out.ok`. To add a
-new test, you may copy one of the existing tests, rename it, and add
-it to the `all.tst` file in the `reml-demo` folder. Examples that are
-expected to halt with a compile time error appears with an "ecte"
-entry in the `all.tst` file, which is processed by the `kittester`
-helper application (installed together with ReML and MLKit). The
-examples are responsible for doing their own validation by writing to
-`stdout` (e.g., using `print`).
-
-## System Requirements
-
-The artifact assumes that `reml` is immediately runnable from the
-command line and that necessary environment variables have been set
-for them to work.  The provided Docker container has all this set up
-already.
-
-Constructing the image from `Dockerfile` requires access to the
-Internet, but running `make` does not.
-
-### Building ReML from Source
-
-The Docker image contains source code for ReML v4.7.5, which is part
-of the MLKit distribution located in the folder `mlkit-4.7.5`. As an
-**optional first step** (before running the benchmarks), it is
-possible to compile and install ReML and the MLKit from source, using
-the following steps (ignore the possible error by `autobuild`):
-
-```
-$ cd mlkit-4.7.5
-$ ./autobuild
-$ ./configure --with-compiler=mlkit --prefix=/home/art/mlkit
-$ make mlkit && make mlkit_basislibs
-$ make install
-$ cd ..
-```
-
-These steps will overwrite the binary MLKit and ReML installations with a
-bootstrapped version of the MLKit and a ReML compiler built with MLKit.
-
-## Docker Image
-
-For space reasons, the Docker image is very sparse and does not have
-text editors installed.  The user account has password-less `sudo` so
-you can install more things if you want.  Otherwise you can use
-commands such as `docker cp` to move data out of the image for
-inspection on the host system.  Consult your favorite search engine
-for information on how to use Docker if you are unfamiliar.
+If your artifact needs lots of memory you may need to increase the
+value of the `QEMU_MEM_MB` variable in the `start.sh` script.
 
 ## Manifest
 
-This section describes every top-level directory and nontrivial file
-and its purpose.
+This section describes every sub-directory and nontrivial file of
+`/home/artifact/debs-icfp24/` and their purpose.
 
-* `reml-demo/`: The ReML demo programs and a Makefile containing
-  targets for compiling and executing the programs with ReML. The
-  Makefile target `all` runs the target `test`, which runs the tests.
+* `demo/`: The demo programs and a Makefile containing
+  targets for compiling and executing the programs with MLKit.
 
-* `reml-basis/`: A local copy of the ReML parallel library
-  `par-reml.mlb` including implementations of `THREAD` and `FORK_JOIN`
-  signatures.
+* `mlkit-bench/`: Programs for running benchmarks and for displaying
+  tables (based on produced json-files).
 
-* `Dockerfile`: The file used to build the Docker image.  You should
-  use the pre-built image if possible, but if necessary you can build
-  it yourself with `make debs-icfp24.tar.gz` (uses `sudo`).
+* `src/`: The benchmark programs reside in this folder together with a
+  Makefile used for executing the benchmarks and for showing result
+  tables.
 
-  Notice that the Dockerfile is *not* reproducible, so it may or may
-  not result in a working image if you try this in the distant future.
+* `boot`: Machinery for measuring compile time and memory usage for
+  compiling MLKit and MLton with different configurations of MLKit
+  (with and without double-ended bit-stealing).
 
 * `Makefile`: The commands executed when running `make`.  You can
   extract the commands if you need to run them out of order.
 
-* `mlkit-4.7.5`: Source directory for MLKit v4.7.5, which is the
-  source for the binary version of ReML and the MLKit, installed in
-  the Docker image.
+* `LICENSE`: License for the artifact source code. Notice that
+  embedded sources for the MLKit and MLton are distributed under the
+  licenses located in the folders `mlkit-src` and `mlton-src`,
+  respectively.
 
-## ReML Source Code Overview
+## MLKit Source Code Overview
 
-ReML is implemented on top of MLKit and is tightly integrated with the
-source code of MLKit. The source code for the compiler is Standard ML
+The source code for the MLKit compiler is Standard ML
 and the runtime system (target code is x86_64 machine code) is written
 primarily in C. There is almost full support for the Standard ML Basis
 Library.
 
 As mentioned above, the source code is available in the folder
-`mlkit-4.7.5`. Below, we will briefly describe the major source code
-components that contribute to the ReML additions of MLKit:
+`debs-icfp24/mlkit-src` (version 4.7.11). Below, we will briefly
+describe the major source code components that contribute to
+double-ended bit-stealing in MLKit:
 
-- `src/Parsing`: ReML is backwards compatible with Standard ML and
-  features no additional keywords. ReML make special use of the `with`
-  and `while` keywords to bind effects and regions (`with`
-  declarations) and to add constraints to type schemes (`while`
-  types). The `DEC_GRAMMAR` signature is extended to fit the new
-  constructs and `src/Parsing/Topdec.grm` is extended to support
-  `with` declarations and `while` types. The special back-tick syntax
-  for annotating expressions and types with explicit region and effect
-  variables also involve changes to the grammar and the AST described
-  by the `DEC_GRAMMAR` signature.
-
-- `src/Common/EfficientElab/ElabDec.sml` and `src/Compiler/Lambda`:
-  ReML does its best at propagating source code locations for
-  annotations into the deeper languages in the compiler. Roughly,
-  after elaboration (ML type inference), code is translated into a
-  typed intermediate language representation
-  (`src/Compiler/Lambda/LAMBDA_EXP`) for which all module language
-  constructs have been eliminated. At these levels (elaboration and
-  typed lambda language), ReML constraints and annotations are yet not
-  used for any kind of checking.
+- `src/Compiler/Lambda/CompileDec.sml`: The inference algorithm that
+  determines boxities for algebraic data types appears in this file
+  (the main function is `unbox_datbinds`). Decisions about boxities
+  are recorded directly in type names associated with the algebraic
+  data types. This file is responsible for the compilation of the
+  AST-representation of Standard ML programs into a typed intermediate
+  language (`LAMBDA_EXP`).
 
 - `src/Compiler/Regions`: After `LAMBDA_EXP` (and a series of
   optimisations), programs are compiled into explicit region-annotated
   terms (the language `REGION_EXP`). This translation is the process
-  of *region inference*, a typed- and effect-based transformation that
-  happen in two phases (see the paper for details). The first phase is
-  a *spreading phase* that inserts fresh region- and effect-variables
-  to the program. During this phase, which is implemented in
-  `src/Compiler/Regions/SpreadExpression.sml`, explicit ReML region
-  annotations are used to guide the insertion of fresh region- and
-  effect-variables (by, for instance, associating explicit region- and
-  effect-variables with the internal counterparts, which may be
-  unified. The definition of internal region- and effect-variables is
-  located in the file `src/Compiler/Regions/Effect.sml`. The
-  definition is based on a union-find data structure that features a
-  series of graph operations for instantiating and generalising graphs
-  (i.e., region- and effect-polymorphic type schemes). The second
-  phase is the *region inference* phase (file
-  `src/Compiler/Regions/RegInf.sml`), which applies a series of
-  so-called *contracting substitutions* (i.e., unifications) to ensure
-  that the region-typing rules are satisfied. Because no fresh
-  variables are created during this phase, the phase is guaranteed to
-  terminate (provided the underlying ML program is well-typed).
+  of *region inference*, a typed- and effect-based
+  transformation. Region-annotated algebraic data types are compiled
+  from their non-region annotated counterparts using information about
+  boxities in the type names associated with the algebraic data types
+  (file `src/Compiler/Regions/RType.sml`). Moreover, in `REGION_EXP`,
+  constructors associated with unboxed types (unary and nullary) are
+  not associated with regions.
 
-  During these phases, ReML may complaint with errors if region
-  inference is forcing unifications that do not adhere to the explicit
-  region- and effect-annotations (including pinning of region- and
-  effect- variables with `with` declarations and explicit region- and
-  effect-parameters). The constraints that are annotated through the
-  notion of `while` types are pushed into the region- and effect-graph
-  structure, by annotations on region and effect variables.
+- `src/Compiler/Backend/X64/CodeGenX64.sml`: For generating code for
+  switches (simple pattern matches) and for constructing and
+  deconstructing constructed values, the implementation takes into
+  account the boxity of the relevant algebraic data type.
 
-  After the two region-inference phases, the constraints are checked
-  by attempting to resolve constraints using simpler constraint
-  assumptions and other effect properties (e.g., that locally defined
-  effects are finite and closed and that a `nomut` constraint on an
-  effect entails put-disjointness (##) with other effects). The code,
-  which essentially follows the formal development in the paper,
-  appears in `src/Compiler/Regions/Effect.sml` (functions
-  `check_constraint` and `check_prop_constraint`).
-
-- The deeper ReML compiler phases are fully shared with the MLKit
-  Standard ML compiler.
+- `src/Runtime/GC.c`: For reference-tracing garbage collection, the
+  garbage collector needs to untag unboxed tagged values appropriately
+  and, in particular, deal correctly with double-ended bit-stealing.

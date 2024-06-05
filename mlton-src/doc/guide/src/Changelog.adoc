@@ -1,0 +1,7 @@
+= Changelog
+
+* https://github.com/MLton/mlton/blob/master/CHANGELOG.adoc[`CHANGELOG.adoc`]
+
+----
+include::https://raw.github.com/MLton/mlton/master/CHANGELOG.adoc[indent=0]
+----

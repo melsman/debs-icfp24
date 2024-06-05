@@ -1,0 +1,63 @@
+= CallingFromSMLToC
+
+MLton's <<ForeignFunctionInterface#>> allows an SML program to _import_
+C functions.  Suppose you would like to import from C a function with
+the following prototype:
+[source,c]
+----
+int foo (double d, char c);
+----
+MLton extends the syntax of SML to allow expressions like the following:
+----
+_import "foo": real * char -> int;
+----
+This expression denotes a function of type `real * char \-> int` whose
+behavior is implemented by calling the C function whose name is `foo`.
+Thinking in terms of C, imagine that there are C variables `d` of type
+`double`, `c` of type `unsigned char`, and `i` of type `int`.  Then,
+the C statement `i = foo (d, c)` is executed and `i` is returned.
+
+The general form of an `_import` expression is:
+----
+_import "C function name" attr... : cFuncTy;
+----
+The type and the semicolon are not optional.
+
+The function name is followed by a (possibly empty) sequence of
+attributes, analogous to C `__attribute__` specifiers.
+
+
+== Example
+
+`import.sml` imports the C function `ffi` and the C variable `FFI_INT`
+as follows.
+
+[source,sml]
+----
+include::https://raw.github.com/MLton/mlton/master/doc/examples/ffi/import.sml[indent=0]
+----
+
+`ffi-import.c` is
+
+[source,c]
+----
+include::https://raw.github.com/MLton/mlton/master/doc/examples/ffi/ffi-import.c[indent=0]
+----
+
+Compile and run the program.
+----
+% mlton -default-ann 'allowFFI true' -export-header export.h  import.sml ffi-import.c
+% ./import
+13
+success
+----
+
+
+== Download
+* https://raw.github.com/MLton/mlton/master/doc/examples/ffi/import.sml[`import.sml`]
+* https://raw.github.com/MLton/mlton/master/doc/examples/ffi/ffi-import.c[`ffi-import.c`]
+
+
+== Next Steps
+
+* <<CallingFromSMLToCFunctionPointer#>>

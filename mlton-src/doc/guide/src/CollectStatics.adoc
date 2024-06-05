@@ -1,0 +1,17 @@
+= CollectStatics
+
+<<CollectStatics#>> is a collection of optimization passes for the <<RSSA#>>
+<<IntermediateLanguage#>>, invoked from <<RSSASimplify#>>.
+
+== Description
+
+<<CollectStatics#>> lifts string and real constants and suitable globals to
+static objects.
+
+== Implementation
+
+* https://github.com/MLton/mlton/blob/master/mlton/backend/collect-statics.fun[`collect-statics.fun`]
+
+== Details and Notes
+
+{empty}

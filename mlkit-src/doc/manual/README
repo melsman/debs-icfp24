@@ -1,0 +1,14 @@
+This is "Programming with Regions in the MLKit", the user's guide to
+the MLKit.
+
+Style conventions:
+------------------
+
+Profile graphs should be produced with the -eps 138mm option to rp2ps.
+
+We use the series comma.
+
+Pdf-version
+-----------
+
+See Makefile

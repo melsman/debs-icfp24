@@ -4,9 +4,9 @@ structure Word32 : WORD where type word = Word.word =
     type word = W.word
     val wordSize = 32
     val toLarge = W.toLarge
-    val high : W.word = 0wx7FFFFFFF00000000
+    fun high() : W.word = W.<<(0wx7FFFFFFF, 0w32)  (* 0wx7FFFFFFF00000000 *)
     val low : W.word = 0wxFFFFFFFF
-    fun signextend w = if w > 0wx7FFFFFFF then W.orb(high,w) else w
+    fun signextend w = if w > 0wx7FFFFFFF then W.orb(high(),w) else w
     fun norm w = W.andb(w,low)
     fun toLargeX a = W.toLargeX (signextend a)
     val toLargeWord = toLarge
@@ -46,6 +46,6 @@ structure Word32 : WORD where type word = Word.word =
 
     val fmt = W.fmt
     val toString = W.toString
-    fun scan r gc s = let val v = W.scan r gc s in Option.map (fn (w,r) => if W.andb(w,high) = W.fromInt 0 then (w,r) else raise Overflow) v end
-    fun fromString s = let val v = W.fromString s in Option.map (fn w => if W.andb(w,high) = W.fromInt 0 then w else raise Overflow) v end
+    fun scan r gc s = let val v = W.scan r gc s in Option.map (fn (w,r) => if W.andb(w,high()) = W.fromInt 0 then (w,r) else raise Overflow) v end
+    fun fromString s = let val v = W.fromString s in Option.map (fn w => if W.andb(w,high()) = W.fromInt 0 then w else raise Overflow) v end
   end

@@ -1,0 +1,127 @@
+# -----------------------------------------------------------
+# Build the MLKit including tools, runtime systems, etc.
+# -----------------------------------------------------------
+
+SHELL=@SHELL@
+
+# Some commands
+MKDIR=@top_srcdir@/mkinstalldirs
+LIBDIR=@top_srcdir@
+INSTALL=@INSTALL@
+INSTALLDATA=@INSTALL_DATA@
+CLEAN=rm -rf MLB *~ .\#* a.out run
+
+BINDIR=@top_srcdir@/bin
+
+include @top_srcdir@/Makefiledefault
+
+# Whether request profiling is enabled
+REQUEST_PROFILING=
+#REQUEST_PROFILING=true
+
+.PHONY: mlkit
+mlkit: mlkit_tools mlkit_runtime mlkit_kit
+
+.PHONY: mlkit_tools
+mlkit_tools: basics rp2ps tester kitbench mlbmake mllex-yacc
+
+.PHONY: mlkit_runtime
+mlkit_runtime: basics
+	$(MAKE) -C Runtime runtimeSystem.a
+	$(MAKE) -C Runtime runtimeSystemProf.a
+	$(MAKE) -C Runtime runtimeSystemGC.a
+	$(MAKE) -C Runtime runtimeSystemGCProf.a
+	$(MAKE) -C Runtime runtimeSystemGenGC.a
+	$(MAKE) -C Runtime runtimeSystemGenGCProf.a
+	$(MAKE) -C Runtime runtimeSystemPar.a
+#	$(MAKE) -C Runtime runtimeSystemGCTP.a
+#	$(MAKE) -C Runtime runtimeSystemGCTPProf.a
+#	$(MAKE) -C Runtime runtimeSystemTag.a
+
+.PHONY: mlkit_kit
+mlkit_kit:
+	$(MLCOMP) -output mlkit Compiler/native64.mlb
+	$(INSTALL) -p mlkit $(BINDIR)
+
+.PHONY: smltojs
+smltojs: basics mlbmake mllex-yacc
+	$(MLCOMP) -output smltojs Compiler/smltojs.mlb
+	$(INSTALL) -p smltojs $(BINDIR)
+
+.PHONY: reml
+reml: mlkit_tools mlkit_runtime
+	$(MLCOMP) -output reml Compiler/reml.mlb
+	$(INSTALL) -p reml $(BINDIR)
+
+.PHONY: mllex-yacc
+mllex-yacc: Parsing/Topdec.lex.sml Parsing/Topdec.grm.sml
+
+.PHONY: barry
+barry: basics mlbmake mllex-yacc
+	$(MLCOMP) -output barry Compiler/barry.mlb
+	$(INSTALL) -p barry $(BINDIR)
+
+.PHONY: basics
+basics: mlkit-mllex mlkit-mlyacc
+
+.PHONY: rp2ps
+rp2ps:
+	$(MAKE) -C Tools/Rp2ps
+
+.PHONY: tester
+tester:
+	$(MAKE) -C Tools/Tester
+
+.PHONY: mlbmake
+mlbmake:
+	$(MAKE) -C Tools/MlbMake Configuration.sml
+
+.PHONY: kitbench
+kitbench:
+	$(MAKE) -C Tools/Benchmark
+
+.PHONY: mlkit-mllex
+mlkit-mllex:
+	$(MAKE) -C Tools/ml-lex
+
+.PHONY: mlkit-mlyacc
+mlkit-mlyacc:
+	$(MAKE) -C Tools/ml-yacc
+
+Parsing/Topdec.lex.sml: Parsing/Topdec.lex
+	$(BINDIR)/mlkit-mllex Parsing/Topdec.lex
+
+Parsing/Topdec.grm.sml: Parsing/Topdec.grm
+	$(BINDIR)/mlkit-mlyacc Parsing/Topdec.grm
+
+.PHONY: clean
+clean:
+	$(CLEAN) run smltojs
+	$(MAKE) -C Pickle clean
+	cd Pickle && $(CLEAN)
+	cd Kitlib && $(CLEAN)
+	cd Common && $(CLEAN)
+	cd Common/EfficientElab && $(CLEAN)
+	cd Compiler && $(CLEAN)
+	cd Parsing && $(CLEAN)
+	cd Manager && $(CLEAN)
+	cd Edlib && $(CLEAN)
+	cd Runtime && $(MAKE) clean
+	cd Tools/MspComp && $(MAKE) clean
+	cd Tools/Tester && $(MAKE) clean
+	cd Tools/Rp2ps && $(MAKE) clean
+	cd Tools/MlbMake && $(MAKE) clean
+	cd Tools/Benchmark && $(MAKE) clean
+	$(MAKE) -C Tools/ml-lex clean
+	$(MAKE) -C Tools/ml-yacc clean
+	cd Compiler && $(CLEAN)
+	cd Compiler/Backend && $(CLEAN)
+	cd Compiler/Backend/Dummy && $(CLEAN)
+	cd Compiler/Backend/X64 && $(CLEAN)
+	cd Compiler/Backend/Barry && $(CLEAN)
+	cd Compiler/Backend/JS && $(CLEAN)
+	cd Compiler/Regions && $(CLEAN)
+	cd Compiler/Lambda && $(CLEAN)
+	cd lib/github.com/diku-dk/sml-uref && $(CLEAN)
+	cd lib/github.com/diku-dk/sml-uref/test && $(CLEAN)
+	rm -f mlkit

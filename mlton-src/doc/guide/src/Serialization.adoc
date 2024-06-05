@@ -1,0 +1,13 @@
+= Serialization
+
+<<StandardML#,Standard ML>> does not have built-in support for
+serialization.  Here are papers that describe user-level approaches:
+
+* <<References#Elsman04,Elsman04>>
+* <<References#Kennedy04,Kennedy04>>
+
+The MLton repository also contains an experimental generic programming
+library (see
+https://github.com/MLton/mltonlib/blob/master/com/ssh/generic/unstable/README[`README`]) that
+includes a pickling (serialization) generic (see
+https://github.com/MLton/mltonlib/blob/master/com/ssh/generic/unstable/public/value/pickle.sig[`pickle.sig`]).

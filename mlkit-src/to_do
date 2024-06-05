@@ -1,0 +1,429 @@
+mael 2018-12-19: Investigate prettier effect printing. Why do we print
+U-nodes?
+
+mael 2018-12-19: Consider adding a new -Psre flag for printing
+ simplified region expressions:
+
+   1. All comparison operations should be pretty-printed as such
+      (<,=,>,<=,>=).
+
+   2. print short-cut boolean expressions nicely
+
+   3. Don't print "letregion r:m in e end" constructs when r is used
+      only for storing immediate closures.
+
+mael 2013-11-21: Create a Prims.concatWith to allow for inlining of
+JsCore.exec2, etc. Currently, all JavaScript interaction (except for
+calls to JsCore.exec1) is done through the creation of Function
+objects...
+
+mael 2009-10-10: Dynamic types and values.
+
+signature DYN_TYPE = sig
+
+  eqtype tn
+  eqtype con
+  datatype t =
+	DT_Tuple of t list
+      | DT_Dat of tn * t list
+      | DT_Arrow of t * t
+      | DT_Int32 | DT_Int31 | DT_Real | DT_Bool | DT_String
+
+  val con_arg_t : tn * t list -> con -> t
+
+  datatype v =
+	V_Int32 of Int32.int
+      | V_Int31 of Int31.int
+      | V_Bool of bool
+      | V_Real of real
+      | V_String of string
+      | V_Tuple of v list
+      | V_Fn of v -> v
+      | V_Con of con * v option
+
+end
+
+structure Dt :> DYN_TYPE
+
+Built-in function:
+
+
+  val typeof : '_a -> Dt.t
+  fun variant (a : '_a) : Dt.v =
+    case typeof a of
+      DT_Int32 => Dt.V_Int32(Unsafe.cast a)
+      ...
+
+  fun op = (v1 : '_a, v2 : '_a) =
+    case typeof v1 of
+
+
+mael 2008-10-19: Make a filesys abstraction FSys that allows for
+source files and target files to be stored in a database or in the
+file system. The MLKit should then use this abstraction for accessing
+files. The abstraction should be general in the sense that it should
+support all kinds of files, including binary files, but still, it
+should support being implemented using a proxy so that sources can be
+stored on a server, compiled on clients and targets stored on the
+server.
+
+mael 2008-10-18: When an mlb-path-map references a non-existing file,
+mlkit reports:
+
+ Stopping compilation due to errors.
+ SysErr
+
+We need a better error message in this case...
+
+mael 2007-07-09: There is a bug concerning checking of changes in
+dependent mlb-files. Update mael 2008-10-28: .d-files (e.g.) for a
+file should contain the hosting mlb-file in the name in order for the
+dependency checks to work correctly...
+
+mael 2007-04-19: Check before using a library that it has been
+compiled with the same version of the mlkit that tries to use the
+library. It can be discussed how rigid this check could be. A simple
+check just serializes the string (Version.svn_rev ^
+Version.configure_date) into all serialized objects. For a less
+simple, but more bullet-proof check, we need to use a unique id
+generated at build time (not at autoconf or configure time). We can
+take an MD5 sum of the machine name and the current time and date.
+
+mael 2007-04-19: Better error reporting for errors in MLB-files.
+
+mael 2007-02-26: Things to do:
+
+ - runtime flags only if env var MLKIT_RUNTIME_FLAGS is set.
+
+     Instead use the syntax:
+
+       a.out @MLKit -help --
+       a.out @MLKit -help -- a b c
+         means: print runtime help options and exit
+
+       a.out @MLKit -verbose_gc -- a b c
+         means: enable runtime option -verbose_gc and make options [a, b, c]
+         available to the application.
+
+mael 2005-11-29: Things needed for the next release:
+
+   * mael 2006-01-24: Don't do a gc during exit...
+
+mael 2005-10-28: Fix bug in gengc: Errors when bootstrapping
+
+mael 2005-10-25: Add necessary Posix-support needed to compile
+Kittester with MLKit. DONE (Varming)
+
+mael 2005-10-25: MLB-make needs to check the integrity (e.g., size) of
+.{eb1,eb,lnk,rev}-files before concluding that recompilation is not
+needed. It is sufficient to check the integrity of lnk-files since
+lnk-files are generated last. DONE.
+
+varming 2005-09-05: Upgraded SMLserver to Apache. Started work on
+configuration prior to compilation (autoconf).
+
+ > cd kit
+ > autoconf -o configure configure.ac
+ > autoheader configure.ac
+ > ./configure
+
+Generates apropriate Makefiles to build the kit. To build SMLserver
+try configure --enable-SMLserver --with-apache=/path/to/apache
+To build oracle driver configure --enable-SMLserver
+--with-apache=/path/to/apache --with-oracle=/path/to/oracle
+
+mael 2005-09-02: Both "make mlkit", "make smlserver", and "make
+mlkit_kam" works. Running the regression tests on mlkit and mlkit_kam
+also works:
+
+ > cd kit/test
+ > export SML_LIB=/home/mael/mlkit/kit
+ > rm -rf MLB ../basis/MLB
+ > make test_mlkit
+ > rm -rf MLB ../basis/MLB
+ > make test_kam
+
+To run "make smlserver", first the AOLserver rpm must be
+installed. Then, after the build of smlserverc, do as follows:
+
+   cd kit/smlserver_demo/www
+   export SML_LIB=/home/mael/mlkit/kit
+   ../../bin/smlserverc demo.mlb
+
+This should construct a file www/MLB/demo.ul. Currently, msp-files are
+not supported.
+
+Things to do:
+
+  - Upgrade to Apache. (Carsten)
+  - Setup and test separate compilation mechanisms
+  - Setup regression testing for different compile time options, such
+    as "-gc", "-prof", "-gc -prof" (Martin)
+
+
+mael 2004-12-14: The definition of a "basis closure" is
+inappropriately strong. More information than necessary is included in
+the closure, which means that serialized bases take up a large amount
+of space on disk. This is not entirely correct; some information is
+not included in a basis closure; see test/functor
+
+mael 2005-05-27: Things to do:
+
+ - With different combinations of options, code should be stored in
+   different MLB sub-directories. There are different kinds of options:
+
+    1) Options that influence the generated code and which runtime system
+       is used:
+         region profiling, gc, gengc, tagging schemes
+
+    2) Options that influence the generated code, but not which runtime
+       system is used:
+         lambda optimizations, enabling/disabling of storage mode
+         analysis/multiplicity inference
+
+    3) Options that do not influence the generated code:
+         pretty-printing options
+         verbosity options (chat,debug)
+
+   For computing a subdirectory of MLB to store target code, etc., we
+   sort all options in category (1) and (2); call this list of options
+   L and the list of option values V.
+
+    val s = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_"
+    val sz = size s (*=64*)
+
+   This allows for the encoding of 6 option values for each character.
+   Divide V into lists of 6-tuples (pad with true values for possible
+   missing entries in the last tuple). Interpret each tuple as a
+   number between 0 and 64 (binary interpretation;
+   TRUE=1;FALSE=0). Index into s to get a character for each 6-tuple.
+
+
+  mlbmake: Make tool that calls mlkit for each source file in the
+           mlb-file hierachy. When a single sml-file f.sml is given as
+           argument to mlbmake, the following mlb-file is constructed
+           and compiled: 'local $(SML_LIB)/basis/basis.mlb in f.sml end'.
+
+mael 2004-12-13: Status on MLB files.
+
+It is now possible to compile the MLKit itself using
+MLB-files. Unfortunately, a segmentation fault occurs when compiling
+General.sml with the generated executable - compilation of Initial.sml
+goes well.
+
+Some things to do:
+
+  * Check for cycles in MLB-graph. - OK
+
+  ** fix bug (see above)
+
+  * rewrite tests to use mlb-files instead of pm-files - OK
+
+  * modify test-utility to call mlbmake instead of mlkit when
+    the argument is an mlb-file. Alternatively, exec mlbmake from
+    within mlkit when the argument is an mlb-file. - OK
+
+  * Extend mlbmake to take a single sml-file "file.sml" as
+    argument. Its semantics should then be similar to
+      local $(SML_LIB)/basis/basis.mlb in file.sml end  - OK
+
+mael 2004-10-30 Plan for mlb-files implementation in the MLKit.
+
+Status: It is now possible to compile simple mlb-files and have
+export-basis information stored on disk for each compilation unit. A
+"dependency analysis", which is run before compilation units are
+compiled, determines which exported export-bases a compilation unit
+depends on.
+
+Things to do:
+
+ 1) Move the MLB implementation outside of the MLKit, so that it can
+    be used also by the Moscow ML compiler. Figure out what
+    command-line features should be supported by the MLKit executable
+    (or Moscow ML):
+
+        mlkit -c -o myfile -load u1.eb ... uN.eb file.sml   // generates myfile.{eb,o,li}
+        mlkit -o a.out -link u1 ... uN                   // generates a.out
+
+ 2) Optimize loading of export bases so that only infix and elaboration
+    bases are loaded for all {u1.eb ... uN.eb} in
+
+        mlkit -o myfile -load u1.eb ... uN.eb file.sml
+
+    After the infix and elaboration bases are loaded, the program unit
+    can be parsed and elaborated into a typed abstract syntax
+    tree. Once the program unit has been elaborated, free identifiers
+    of the program unit can be found [Els98, Chapter 4]. From this
+    information, the subset U of {u1,...,uN} necessary for compilation
+    can be found.
+
+Possible things to do
+---------------------
+
+mael 2003-03-05: better pretty-printing of type variables. In
+particular, types with more than 20 (or so) type variables in them are
+not nicely pretty-printed in error messages and signatures (e.g., '}
+should instead be 'aa). Also, it would be great if we could reuse the
+name of the type variable as it occurs in the source program (e.g.,
+write 'kind instead of 'aa).
+
+mael 2003-02-04: nicer pretty-printing of signatures (mlkit
+-sig). Particularly, parameterized type constructors have an extra
+space.
+
+mael 2001-11-27: curry-compression: turn
+
+    let f = \x.let g = \y.e1 in \z.e2
+    in e3
+    end
+
+into
+
+    let f = \x.\z.let g = \y.e1 in e2
+    in e3
+    end
+
+Let C be the contexts defined by
+
+    C[.] := .
+          | let f = \x.e in C[.]
+Turn
+    let f = \x.C[\y.e1] in e2
+into
+    let f = \x.\y.C[e1] in e2
+
+mael 2001-11-13: turn curried functions into functions that take
+  multiple arguments; build the closure at the call-site for those
+  functions that are not fully applied:
+
+    let f = \x1...\xn.e in (...(f e1)...en)  ==>
+    let f = \<x1...xn>.e in f <e1,...,en>
+
+
+mael 2001-11-12: better cross-module in-lining; support in-lining of
+  non-closed functions.
+
+mael 2001-11-12: don't built closures for top-level functions; all
+  free variables of such functions are either (1) top-level functions,
+  which by induction have no environment, or (2) top-level variables,
+  which are statically allocated.
+
+mael 2001-11-12: unboxed implementation of datatypes that
+  have any number of nullary constructors but at-most three unary
+  construtors that all take boxed arguments. With gc, only two unary
+  constructors are allowed for the datatype to be implemented
+  unboxed. Examples of datatypes that may be implemented unboxed
+  include (1) The list datatype, (2) enumerations, (3) the Binary
+  tree datatypes in kit/basis/Binarymap.sml,
+  kit/basis/Binaryset.sml, kit/basis/Intmap.sml,
+  kit/basis/Intset.sml, kit/basis/Polyhash.sml,
+  kit/basis/Splaymap.sml, and kit/basis/Splayset.sml, (4)
+  Patricia trees (kit/src/Common/IntFinMapPT.sml), and (5) Union Find
+  data structure (kit/src/Compiler/Kam/UnionFindPoly.sml.)
+
+mael 2001-11-12: unboxed implementation of datatypes that
+  have only one unary constructor; in most cases this optimisation is
+  captured by the unboxing mentioned above.
+
+mael 2001-08-07: catch stack-overflow
+
+mael 2001-08-03: man pages for mlkit and smlserver, rp2ps  - OK
+
+mael 2001-08-03: colors in rp2ps output
+
+Unsolved bugs
+-------------
+nh 2001-06-01: Fra url:
+  http://www.it-c.dk/people/tofte/eksperiment1/index.html
+
+    The results were (sorted by decreasing speed):
+
+    1.4,393 secs: compiler: MLKit; target code: no garbage collection (i.e., only regions)
+    2.4,802 secs: compiler: MLKit; target code: regions and garbage collection
+    3.6,3 secs: compiler: mosml; target code: garbage collection, no regions
+    4.8,131 secs: compiler: MLKit; target code: regions, garbage collection and profiling.
+       Check the region profile graph and the object profil of the largest region. (The program
+       points in the latter graph do not seem to be right: maybe the same program points are
+       used in the basis library and in the evaluation system code?.)
+
+
+                             VERSION 3
+
+
+ERROR:
+SYMPTOM:
+TESTFILE:
+PRIORITY: (HIGH|MEDIUM|LOW)
+REPORTED BY: (MT|ME|FAXE) + date
+TO BE FIXED BY: (MT|ME|FAXE)
+
+=============================== BUGS ===============================
+ERROR: CompileDec `val rec pat' error
+SYMPTOM: Compilation crashes:
+           Impossible: CompileDec.compileREC.id_sigma
+TESTFILE: kit/test/valrecpat.sml
+PRIORITY: MEDIUM
+REPORTED BY: ME 1999-04-12
+TO BE FIXED BY: ME
+--------------------------------------------------------------------
+ERROR: ElabDec `val rec pat' error
+SYMPTOM: Elaboration fails to succeed (see The Def. page 24)
+TESTFILE: test/valrecpat2.sml
+PRIORITY: MEDIUM
+REPORTED BY: ME 1999-04-12
+TO BE FIXED BY: ME
+=============================== WAIT ===============================
+
+Large elaboration bases are annotated on the ast (functor bindings)
+during elaboration. Such annotated bases cause opacity elimination to
+be slow when compiling large programs; opacity elimination applies
+realisations to ast annotated objects. To improve speed of
+compilation, we should restrict the annotated bases to those
+identifiers that occur free in the functor binding. Is it possible to
+do this restriction during the pass for finding free identifiers
+(FreeIds)?
+
+Implement some kind of project reuse; it currently takes too long for
+the manager to find out that the code for the basis library can be
+reused. The problem is that the result basis for the basis library
+project is reconstructed, from the result bases for the individual
+sources of the library, every time the project is reused.
+
+Variables that occur free in a program unit are associated with
+labelled slots in the data segment of the final executable; thus,
+these variables need not be stored in closures. It suffices to fetch
+them from the data segment.
+
+Currently, we do not treat multiple declarations of the same functor
+identifier in the same project. We can allow this; but we cannot allow
+a functor identifier to be declared more than once in a source file.
+
+Allow in-lining of functors and pre-processing through
+ML-Yacc and ML-Lex. Syntax:
+
+     bdy ::= inline funidseq                     functor inlining
+          |  local bdy in bdy end                local
+	  |  bdy bdy |  _                        sequential
+          |  file.sml | file.sig                 source file
+          |  file.o                              precompiled object
+          |  file.grm                            yacc source file
+          |  file.lex                            lex source file
+
+Declare polymorphic eq. in the initial basis, and make it impossible
+to redeclare equality; if equality is in the initial basis then
+in-lining happens automatically.
+
+How are we going to model the differences between the specification of
+the Math structure and the semantics of /usr/include/math.h? For now,
+I think that we should just do whatever math.h does; MosML does not
+implement NaN, posInf, and negInf; instead, MosML raises Overflow when
+the specification suggests to return NaN, posInf, or negInf.
+
+Implementation of Real.round on systems that do not have rint() (i.e.,
+systems based on gcc's library). Real.round is broken in MosML, so we
+cannot copy the code.
+
+Why are regions that are passed to primitive functions in the runtime
+system not tested for resetting automatically (in CompLamb);
+currently, the user must do the resetting in the C function. Is there
+a reason? What about Mogensens idea about resetting?

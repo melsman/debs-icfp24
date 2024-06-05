@@ -1,0 +1,17 @@
+= SXMLShrink
+
+SXMLShrink is an optimization pass for the <<SXML#>>
+<<IntermediateLanguage#>>, invoked from <<SXMLSimplify#>>.
+
+== Description
+
+This pass performs optimizations based on a reduction system.
+
+== Implementation
+
+* https://github.com/MLton/mlton/blob/master/mlton/xml/shrink.sig[`shrink.sig`]
+* https://github.com/MLton/mlton/blob/master/mlton/xml/shrink.fun[`shrink.fun`]
+
+== Details and Notes
+
+<<SXML#>> shares the <<XMLShrink#>> simplifier.
