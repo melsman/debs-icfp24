@@ -53,7 +53,7 @@ $ ssh -p 5555 artifact@localhost
 
 This command will put you into a shell inside a directory containing the
 experimental infrastructure (you may also just login using the terminal window
-openend by QEMU).  For compiling some necessary infrastructure tools, execute
+opened by QEMU).  For compiling some necessary infrastructure tools, execute
 the following commands:
 
 ```
@@ -107,14 +107,15 @@ The artifact establishes the following main claims mentioned in the paper:
    For Figure 8 (`make minitpress`), the column `MLKit` corresponds to `real #
    rg-cr`, the column `MLKit^dagger` corresponds to `real # rg-nhpt-cr`, and
    `MLKit^R` corresponds to `real # r-cr`. Notice, in particular, time
-   improvements (`real # rg-cr` compared to `real # rg-nhpt-cr`) for the
+   improvements (`real # rg-cr` faster than `real # rg-nhpt-cr`) for the
    benchmarks `calc`, `logic`, `patricia`, and `uf`.
 
    For Figure 9 (`make minimpress`), again, the column `MLKit` corresponds to
-   `real # rg-cr`, the column `MLKit^dagger` corresponds to `real # rg-nhpt-cr`,
-   and `MLKit^R` corresponds to `real # r-cr`. In general, for all benchmarks,
-   memory usage (maximum resident set size) for the `real # rg-cr` column should
-   not exceed memory usage for the `real # rg-nhpt-cr` column.
+   `rss # rg-cr`, the column `MLKit^dagger` corresponds to `rss # rg-nhpt-cr`,
+   and `MLKit^R` corresponds to `rss # r-cr`. In general, for all benchmarks,
+   memory usage (maximum resident set size) for the `rss # rg-cr` column should
+   not exceed memory usage for the `rss # rg-nhpt-cr` column (up to rounding
+   errors).
 
 3. Double-ended bit-stealing as implemented in the MLKit compiler has a positive
    effect on the execution time for compiling the MLKit itself and the MLton
@@ -145,6 +146,95 @@ The artifact establishes the following main claims mentioned in the paper:
    $ cd /home/artifact/debs-icfp24/boot
    $ make boxity_report
    ```
+
+## Manifest
+
+This section describes every sub-directory and nontrivial file of
+`/home/artifact/debs-icfp24/` and their purpose.
+
+* `demo/`: The demo programs and a Makefile containing targets for compiling and
+  executing the programs with MLKit.
+
+* `mlkit-bench/`: Programs for running benchmarks and for displaying tables
+  (based on produced json-files).
+
+* `src/`: The benchmark programs reside in this folder together with a Makefile
+  used for executing the benchmarks and for showing result tables.
+
+* `boot`: Machinery for measuring compile time and memory usage for compiling
+  MLKit and MLton with different configurations of MLKit (with and without
+  double-ended bit-stealing).
+
+* `Makefile`: The commands executed when running `make`.  You can extract the
+  commands if you need to run them out of order.
+
+* `LICENSE`: License for the artifact source code. Notice that embedded sources
+  for MLKit and MLton are distributed under the licenses located in the folders
+  `mlkit-src` and `mlton-src`, respectively.
+
+* `mlkit_src`: Source code for the MLKit.
+
+* `mlton_src`: Source code for the MLton compiler, modified to compile
+  efficiently with MLKit's recompilation management (some toplevel
+  build-functors have been converted into structures).
+
+* `Dockerfile`: A file that documents how to extend a basic Debian distribution
+  with installed versions of MLton, SML/NJ, and MLKit.
+
+* `README.md`: This file.
+
+## MLKit Source Code Overview
+
+The source code for the MLKit compiler is Standard ML and the runtime system
+(target code is x86_64 machine code) is written primarily in C. There is almost
+full support for the Standard ML Basis Library.
+
+As mentioned above, the source code is available in the folder
+`debs-icfp24/mlkit-src` (version 4.7.11). Below, we will briefly describe the
+major source code components that contribute to double-ended bit-stealing in
+MLKit:
+
+- `src/Compiler/Lambda/CompileDec.sml`: The inference algorithm that determines
+  boxities for algebraic data types appears in this file (the main function is
+  `unbox_datbinds`). Decisions about boxities are recorded directly in type
+  names associated with the algebraic data types. This file is responsible for
+  the compilation of the AST-representation of Standard ML programs into a typed
+  intermediate language (`LAMBDA_EXP`).
+
+- `src/Compiler/Regions`: After `LAMBDA_EXP` (and a series of optimisations),
+  programs are compiled into explicit region-annotated terms (the language
+  `REGION_EXP`). This translation is the process of *region inference*, a typed-
+  and effect-based transformation. Region-annotated algebraic data types are
+  compiled from their non-region annotated counterparts using information about
+  boxities in the type names associated with the algebraic data types (file
+  `src/Compiler/Regions/RType.sml`). Moreover, in `REGION_EXP`, constructors
+  associated with unboxed types (unary and nullary) are not associated with
+  regions.
+
+- `src/Compiler/Backend/X64/CodeGenX64.sml`: For generating code for switches
+  (simple pattern matches) and for constructing and deconstructing constructed
+  values, the implementation takes into account the boxity of the relevant
+  algebraic data type.
+
+- `src/Runtime/GC.c`: For reference-tracing garbage collection, the garbage
+  collector needs to untag unboxed tagged values appropriately and, in
+  particular, deal correctly with double-ended bit-stealing.
+
+### Related GitHub Issues and Pull Requests
+
+The MLKit is maintained on GitHub in the following repository:
+
+https://github.com/melsman/mlkit
+
+Double-ended bit-stealing in the MLKit is implemented mainly under the following
+GitHub Pull Request:
+
+https://github.com/melsman/mlkit/pull/149
+
+It was first suggested in the following GitHub issue:
+
+https://github.com/melsman/mlkit/issues/99
+
 
 ## QEMU Instructions
 
@@ -230,74 +320,3 @@ $ sudo shutdown now
 ### Debugging
 
 See `Debugging.md` for advice on resolving potential problems.
-
-## Manifest
-
-This section describes every sub-directory and nontrivial file of
-`/home/artifact/debs-icfp24/` and their purpose.
-
-* `demo/`: The demo programs and a Makefile containing targets for compiling and
-  executing the programs with MLKit.
-
-* `mlkit-bench/`: Programs for running benchmarks and for displaying tables
-  (based on produced json-files).
-
-* `src/`: The benchmark programs reside in this folder together with a Makefile
-  used for executing the benchmarks and for showing result tables.
-
-* `boot`: Machinery for measuring compile time and memory usage for compiling
-  MLKit and MLton with different configurations of MLKit (with and without
-  double-ended bit-stealing).
-
-* `Makefile`: The commands executed when running `make`.  You can extract the
-  commands if you need to run them out of order.
-
-* `LICENSE`: License for the artifact source code. Notice that embedded sources
-  for the MLKit and MLton are distributed under the licenses located in the
-  folders `mlkit-src` and `mlton-src`, respectively.
-
-* `mlkit_src`: Source code for the MLKit.
-
-* `mlton_src`: Source code for the MLton compiler, modified to compile
-  efficiently with MLKit's recompilation management (some toplevel
-  build-functors have been converted into structures).
-
-* `Dockerfile`: A file that documents how to extend a basic Debian distribution
-  with installed versions of MLton, SML/NJ, and MLKit.
-
-## MLKit Source Code Overview
-
-The source code for the MLKit compiler is Standard ML and the runtime system
-(target code is x86_64 machine code) is written primarily in C. There is almost
-full support for the Standard ML Basis Library.
-
-As mentioned above, the source code is available in the folder
-`debs-icfp24/mlkit-src` (version 4.7.11). Below, we will briefly describe the
-major source code components that contribute to double-ended bit-stealing in
-MLKit:
-
-- `src/Compiler/Lambda/CompileDec.sml`: The inference algorithm that determines
-  boxities for algebraic data types appears in this file (the main function is
-  `unbox_datbinds`). Decisions about boxities are recorded directly in type
-  names associated with the algebraic data types. This file is responsible for
-  the compilation of the AST-representation of Standard ML programs into a typed
-  intermediate language (`LAMBDA_EXP`).
-
-- `src/Compiler/Regions`: After `LAMBDA_EXP` (and a series of optimisations),
-  programs are compiled into explicit region-annotated terms (the language
-  `REGION_EXP`). This translation is the process of *region inference*, a typed-
-  and effect-based transformation. Region-annotated algebraic data types are
-  compiled from their non-region annotated counterparts using information about
-  boxities in the type names associated with the algebraic data types (file
-  `src/Compiler/Regions/RType.sml`). Moreover, in `REGION_EXP`, constructors
-  associated with unboxed types (unary and nullary) are not associated with
-  regions.
-
-- `src/Compiler/Backend/X64/CodeGenX64.sml`: For generating code for switches
-  (simple pattern matches) and for constructing and deconstructing constructed
-  values, the implementation takes into account the boxity of the relevant
-  algebraic data type.
-
-- `src/Runtime/GC.c`: For reference-tracing garbage collection, the garbage
-  collector needs to untag unboxed tagged values appropriately and, in
-  particular, deal correctly with double-ended bit-stealing.
